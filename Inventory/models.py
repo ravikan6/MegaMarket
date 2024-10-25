@@ -28,10 +28,10 @@ class Inventory(models.Model):
 class Item(models.Model):
     key = models.CharField(max_length=100, unique=True, editable=False)
     sku = models.CharField(max_length=100, unique=True)
+    slug = models.SlugField(max_length=100, unique=True, null=True, blank=True)
     name = models.CharField(max_length=250)
     teaser = models.CharField(max_length=500, null=True, blank=True)
-    description = models.TextField()
-    bullet_points = models.JSONField()
+    description = models.JSONField(null=True, blank=True)
     image = models.ForeignKey('Common.Image', on_delete=models.CASCADE)
     images = models.ManyToManyField('Common.Image', related_name='item_images')
     tags = models.ManyToManyField('Tag', related_name='item_tags')
@@ -43,11 +43,17 @@ class Item(models.Model):
     ], default='available')
 
     price = models.DecimalField(max_digits=10, decimal_places=2)
-    delivery_time = models.IntegerField(null=True, blank=True)
+    cross_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    discount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    discount_type = models.CharField(max_length=100, choices=[
+        ('fixed', 'Fixed'),
+        ('percentage', 'Percentage'),
+    ], null=True, blank=True)
+    tax = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     shipping_cost = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     can_return = models.BooleanField(default=True, null=True, blank=True)
     return_time = models.IntegerField(null=True, blank=True)
-    return_policy = models.TextField(null=True, blank=True)
+    return_policy = models.JSONField(null=True, blank=True)
     
     category = models.ForeignKey('Category', on_delete=models.CASCADE)
     vendor = models.ForeignKey('Vendor.Vendor', on_delete=models.CASCADE)
@@ -77,10 +83,9 @@ class Item(models.Model):
 class ItemVariation(models.Model):
     id = models.CharField(max_length=100, unique=True, editable=False, primary_key=True)
     item = models.ForeignKey('Item', on_delete=models.CASCADE, related_name='variations')
-    name = models.CharField(max_length=100)
-    value = models.CharField(max_length=100)
-    price = models.DecimalField(max_digits=10, decimal_places=2)
-    quantity = models.IntegerField()
+    info = models.JSONField(null=True, blank=True)
+    images = models.ManyToManyField('Common.Image', related_name='variation_images')
+    extra_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(null=True, blank=True)
 
@@ -90,13 +95,14 @@ class ItemVariation(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return self.name
+
+        return self.item.name
     
     class Meta:
         db_table = 'item_variation'
         verbose_name = 'Item Variation'
         verbose_name_plural = 'Item Variations'
-        unique_together = ['item', 'name', 'value']
+        unique_together = ['item', 'info']
 
 class Category(models.Model):
     id = models.CharField(max_length=100, unique=True, editable=False, primary_key=True)

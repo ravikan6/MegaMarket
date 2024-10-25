@@ -9,11 +9,11 @@ from Common.exceptions import InvalidImageException, InvalidModelIdException, Un
 from Common.models import Image
 from Common.tools import ImageHandler
 from Inventory.models import Item, Category, Order, OrderItem, Inventory, ItemVariation, ItemReview, Tag
-from Inventory.types import CategoryInput, CategoryUpdateInput, ItemExtraFieldObject, NewItemInput, UpdateItemInput
+from Inventory.types import CategoryInput, CategoryUpdateInput, ItemExtraFieldObject, ItemVariantInfoObject, NewItemInput, TextJsonFieldData, TextJsonFieldObject, UpdateItemInput
 from Vendor.models import Vendor
 
 class ItemObject(DjangoObjectType):
-    bullet_points = graphene.List(graphene.String)
+    description = graphene.List(TextJsonFieldObject)
     extra_fields = graphene.List(ItemExtraFieldObject)
 
     class Meta:
@@ -21,7 +21,7 @@ class ItemObject(DjangoObjectType):
         exclude = ('created_at', 'updated_at')
         filter_fields = {
             'name': ['exact', 'icontains', 'istartswith'],
-            'description': ['exact', 'icontains', 'istartswith'],
+            'slug': ['exact'],
             'category': ['exact'],
             'tags': ['exact'],
             'price': ['exact', 'gt', 'gte', 'lt', 'lte'],
@@ -34,6 +34,14 @@ class ItemObject(DjangoObjectType):
         interfaces= (relay.Node, )
         use_connection = True
 
+
+    def resolve_description(self, info):
+        try:
+            if self.description:
+                return self.description
+            return None
+        except:
+            return None
 
 class CategoryObject(DjangoObjectType):
     class Meta:
@@ -82,11 +90,14 @@ class InventoryObject(DjangoObjectType):
         use_connection = True
 
 class ItemVariationObject(DjangoObjectType):
+    info = graphene.Field(ItemVariantInfoObject)
+
     class Meta:
         model = ItemVariation
         fields = '__all__'
-        # interfaces= (relay.Node, )
-        # use_connection = True
+        interfaces= (relay.Node, )
+        use_connection = True
+
 
 class ItemReviewObject(DjangoObjectType):
     
@@ -150,7 +161,6 @@ class CreateItem(graphene.Mutation):
             name=input.name,
             teaser=input.teaser,
             description=input.description,
-            bullet_points=input.bullet_points,
             image=image,
             status=input.status,
             price=input.price,
@@ -202,7 +212,6 @@ class UpdateItem(graphene.Mutation):
             if input.name: item.name = input.name
             if input.teaser: item.teaser = input.teaser
             if input.description: item.description = input.description
-            if input.bullet_points: item.bullet_points = input.bullet_points
             if input.image:
                 item.image = ImageHandler(input.image).auto_image()
             if input.price: item.price = input.price
@@ -215,7 +224,6 @@ class UpdateItem(graphene.Mutation):
                 try: item.brand = Brand.objects.get(id=input.brand)
                 except Brand.DoesNotExist: raise InvalidModelIdException(model="Brand")
             if input.status: item.status = input.status
-            if input.delivery_time: item.delivery_time = input.delivery_time
             if input.shipping_cost: item.shipping_cost = input.shipping_cost
             if type(input.can_return) == bool: item.can_return = input.can_return
             if input.return_time: item.return_time = input.return_time

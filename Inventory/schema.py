@@ -14,9 +14,14 @@ from Inventory.types import CategoryInput, CategoryUpdateInput, ItemExtraFieldOb
 from Vendor.models import Vendor
 
 class ItemObject(DjangoObjectType):
-    description = graphene.List(TextJsonFieldObject)
+    description = graphene.String()
+    info = graphene.List(TextJsonFieldObject)
     extra_fields = graphene.List(ItemExtraFieldObject)
-    seo = ItemSeoObject()
+    seo = graphene.Field(ItemSeoObject)
+
+    desc_json = graphene.JSONString()
+    seo_json = graphene.JSONString()
+    extra_fields_json = graphene.JSONString()
 
     class Meta:
         model = Item
@@ -39,8 +44,16 @@ class ItemObject(DjangoObjectType):
 
     def resolve_description(self, info):
         try:
-            if self.description:
-                return self.description
+            if self.description.get('desc', None):
+                return self.description.get('desc')
+            return None
+        except:
+            return None
+
+    def resolve_info(self, info):
+        try:
+            if self.description.get('info', None):
+                return self.description.get('info', None)
             return None
         except:
             return None
@@ -60,6 +73,15 @@ class ItemObject(DjangoObjectType):
             return None
         except:
             return None
+        
+    def resolve_extra_fields_json(self, info):
+        return self.extra_fields
+    
+    def resolve_desc_json(self, info):
+        return self.description
+    
+    def resolve_seo_json(self, info):
+        return self.seo
 
 class CategoryObject(DjangoObjectType):
     class Meta:
@@ -155,20 +177,18 @@ class TagObject(DjangoObjectType):
 '''********** Mutations **********'''
 
 class CreateItem(graphene.Mutation):
-    class Input:
-        input = NewItemInput(required=True)
 
     item = graphene.Field(ItemObject)
     success = graphene.Boolean()
     message = graphene.String()
 
-    def mutate(self, info, input: NewItemInput):
+    def mutate(self, info):
         user = info.context.user
         if not user.is_authenticated or not user.is_vendor:
             raise UnAuthorizedException()
 
         try:
-            vendor = Vendor.objects.get(id=input.vendor)
+            vendor = user.vendor
             if not vendor: raise InvalidModelIdException(model="Vendor")
 
             item = Item(
@@ -195,7 +215,7 @@ class ItemImageUpdate(graphene.Mutation):
         if not user.is_authenticated or not user.is_vendor:
             raise UnAuthorizedException()
         
-        try: item = Item.objects.get(key=key)
+        try: item = Item.objects.get(key=key, vendor=user.vendor)
         except Item.DoesNotExist: raise InvalidModelIdException(model="Item")
         
         try:
@@ -220,7 +240,7 @@ class ItemMediaUpdate(graphene.Mutation):
         if not user.is_authenticated or not user.is_vendor:
             raise UnAuthorizedException()
         
-        try: item = Item.objects.get(key=key)
+        try: item = Item.objects.get(key=key, vendor=user.vendor)
         except Item.DoesNotExist: raise InvalidModelIdException(model="Item")
         
         try:
@@ -249,7 +269,7 @@ class UpdateItem(graphene.Mutation):
         if not user.is_authenticated or not user.is_vendor:
             raise UnAuthorizedException()
         
-        try: item = Item.objects.get(key=key)
+        try: item = Item.objects.get(key=key, vendor=user.vendor)
         except Item.DoesNotExist: raise InvalidModelIdException(model="Item")
         try: 
             if input.sku: item.sku = input.sku
@@ -260,8 +280,6 @@ class UpdateItem(graphene.Mutation):
             if input.category:
                 try: item.category = Category.objects.get(id=input.category)
                 except Category.DoesNotExist: raise InvalidModelIdException(model="Category")
-            if input.vendor:
-                pass
             if input.brand:
                 try: item.brand = Brand.objects.get(id=input.brand)
                 except Brand.DoesNotExist: raise InvalidModelIdException(model="Brand")

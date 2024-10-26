@@ -14,7 +14,6 @@ class VendorObject(DjangoObjectType):
         model = Vendor
         fields = '__all__'
         filter_fields = {
-            'name': ['exact', 'icontains'],
             'key': ['exact', 'icontains'],
         }
         interfaces = (relay.Node, )

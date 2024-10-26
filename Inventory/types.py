@@ -49,7 +49,7 @@ class TextJsonFieldData(graphene.Union):
     @classmethod
     def resolve_type(cls, instance, info):
         print(instance)
-        if 'paragraphs' in instance:
+        if 'paragraph' in instance:
             return ParagraphFieldData
         if 'list' in instance:
             return ListFieldData
@@ -100,7 +100,7 @@ class UpdateItemInput(graphene.InputObjectType):
     tax = graphene.Boolean()
     compare_price = graphene.Float()
     cost = graphene.Float()
-    seo = graphene.Field(ItemSeoInput)
+    seo = graphene.JSONString()
 
 class CategoryInput(graphene.InputObjectType):
     name = graphene.String(required=True)

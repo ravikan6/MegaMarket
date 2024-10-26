@@ -3,8 +3,8 @@ from graphene_django import DjangoObjectType
 from graphene_django.filter import DjangoFilterConnectionField
 from Admin.models import Banner, BannerGroup
 from Api import relay
-from Common.models import Image
-from Common.tools import ImageUrlBuilder
+from Common.models import Image,ItemMedia
+from Common.tools import ImageUrlBuilder, MediaUrlBuilder
 from Common.types import BannerButtonObject
 
 class ImageCropEnum(graphene.Enum):
@@ -50,6 +50,47 @@ class ImageObject(DjangoObjectType):
             width=10, height=10, crop='fill', quality=10, format='webp', effect={'blur': 200}
         )
     
+
+class ItemMediaObject(DjangoObjectType):
+    public_id = graphene.String()
+    blur_url = graphene.String()
+    has_image = graphene.Boolean()
+    url = graphene.String(
+        width=graphene.Int(),
+        height=graphene.Int(),
+        crop=graphene.Argument(ImageCropEnum),
+        quality=graphene.Int(),
+        format=graphene.String(),
+        required=True
+    )
+
+    class Meta:
+        model = ItemMedia
+        fields = ('url', 'id', 'alt', 'type', 'provider')
+
+    def resolve_url(self, info, width=None, height=None, crop=None, quality=None, format=None, **kwargs):
+        if isinstance(self, ItemMedia) and self.has_url:
+            return self._url
+        return MediaUrlBuilder(self).build_url(
+            width=width, height=height, crop=crop.value if crop else None, quality=quality, format=format
+        )
+    
+    def resolve_public_id(self, info):
+        return self.url
+    
+    def resolve_has_image(self, info):
+        return self.id is not None
+    
+    def resolve_blur_url(self, info):
+        if self.provider == 'cloudinary' and self.url:
+            return MediaUrlBuilder(self).build_url(
+                width=10, height=10, crop='fill', quality=10, format='webp', effect={'blur': 200}
+            )
+        return MediaUrlBuilder(ItemMedia(url="74f98fbe6a8ada2db6ec26feb98f994e")).build_url(
+            width=10, height=10, crop='fill', quality=10, format='webp', effect={'blur': 200}
+        )
+
+
 class BannerObject(DjangoObjectType):
     button = graphene.Field(BannerButtonObject)
 

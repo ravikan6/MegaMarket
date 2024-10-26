@@ -6,7 +6,9 @@ from nanoid import generate
 class Inventory(models.Model):
     id = models.CharField(max_length=100, unique=True, editable=False, primary_key=True)
     item = models.ForeignKey('Item', on_delete=models.CASCADE)
-    variant = models.ForeignKey('ItemVariation', on_delete=models.CASCADE)
+    variant = models.ForeignKey('ItemVariantValue', on_delete=models.CASCADE)
+    name = models.CharField(max_length=100)
+    sku = models.CharField(max_length=100, unique=True, null=True, blank=True)
     quantity = models.IntegerField()
     restock_date = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -27,42 +29,34 @@ class Inventory(models.Model):
 
 class Item(models.Model):
     key = models.CharField(max_length=100, unique=True, editable=False)
-    sku = models.CharField(max_length=100, unique=True)
+    sku = models.CharField(max_length=100, unique=True, null=True, blank=True)
     slug = models.SlugField(max_length=100, unique=True, null=True, blank=True)
-    name = models.CharField(max_length=250)
+    name = models.CharField(max_length=250, null=True, blank=True)
     teaser = models.CharField(max_length=500, null=True, blank=True)
     description = models.JSONField(null=True, blank=True)
-    image = models.ForeignKey('Common.Image', on_delete=models.CASCADE)
-    images = models.ManyToManyField('Common.Image', related_name='item_images')
+    image = models.ForeignKey('Common.Image', on_delete=models.CASCADE, null=True, blank=True)
+    media = models.ManyToManyField('Common.ItemMedia', related_name='media', through='ItemMediaThrough')
+    seo = models.JSONField(null=True, blank=True)
     tags = models.ManyToManyField('Tag', related_name='item_tags')
     status = models.CharField(max_length=100, choices=[
-        ('available', 'Available'),
-        ('out_of_stock', 'Out of Stock'),
-        ('coming_soon', 'Coming Soon'),
-        ('discontinued', 'Discontinued'),
-    ], default='available')
+        ('draft', 'Draft'),
+        ('published', 'Published'),
+        ('archived', 'Archived'),
+    ], default='draft')
 
-    price = models.DecimalField(max_digits=10, decimal_places=2)
-    cross_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    discount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    discount_type = models.CharField(max_length=100, choices=[
-        ('fixed', 'Fixed'),
-        ('percentage', 'Percentage'),
-    ], null=True, blank=True)
-    tax = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    shipping_cost = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    compare_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    tax = models.BooleanField(default=True, null=True, blank=True)
+    cost = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     can_return = models.BooleanField(default=True, null=True, blank=True)
     return_time = models.IntegerField(null=True, blank=True)
-    return_policy = models.JSONField(null=True, blank=True)
     
-    category = models.ForeignKey('Category', on_delete=models.CASCADE)
+    category = models.ForeignKey('Category', on_delete=models.CASCADE, null=True, blank=True)
     vendor = models.ForeignKey('Vendor.Vendor', on_delete=models.CASCADE)
     brand = models.ForeignKey('Admin.Brand', on_delete=models.CASCADE, null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(null=True, blank=True)
-    is_active = models.BooleanField(default=True)
-    is_featured = models.BooleanField(default=False)
     
     extra_fields = models.JSONField(null=True, blank=True)
 
@@ -78,14 +72,18 @@ class Item(models.Model):
         db_table = 'item'
         verbose_name = 'Item'
         verbose_name_plural = 'Items'
-    
+
+class ItemMediaThrough(models.Model):
+    item = models.ForeignKey('Inventory.Item', on_delete=models.CASCADE)
+    item_media = models.ForeignKey('Common.ItemMedia', on_delete=models.CASCADE)
+
+    class Meta:
+        db_table = 'inventory_item_media'
 
 class ItemVariation(models.Model):
     id = models.CharField(max_length=100, unique=True, editable=False, primary_key=True)
     item = models.ForeignKey('Item', on_delete=models.CASCADE, related_name='variations')
-    info = models.JSONField(null=True, blank=True)
-    images = models.ManyToManyField('Common.Image', related_name='variation_images')
-    extra_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    name = models.CharField(max_length=100)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(null=True, blank=True)
 
@@ -102,13 +100,38 @@ class ItemVariation(models.Model):
         db_table = 'item_variation'
         verbose_name = 'Item Variation'
         verbose_name_plural = 'Item Variations'
-        unique_together = ['item', 'info']
+        unique_together = ['item', 'name']
+
+class ItemVariantValue(models.Model):
+    id = models.CharField(max_length=100, unique=True, editable=False, primary_key=True)
+    item = models.ForeignKey('Item', on_delete=models.CASCADE)
+    variant = models.ForeignKey('ItemVariation', on_delete=models.CASCADE, related_name='values')
+    value = models.CharField(max_length=100)
+    media = models.ManyToManyField('Common.ItemMedia')
+    price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    compare_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(null=True, blank=True)
+
+    def save(self, *args, **kwargs):
+        if not self.pk:
+            self.id = generate(size=28)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.value
+    
+    class Meta:
+        db_table = 'item_variant_value'
+        verbose_name = 'Item Variant Value'
+        verbose_name_plural = 'Item Variant Values'
+        unique_together = ['item', 'variant', 'value']
 
 class Category(models.Model):
     id = models.CharField(max_length=100, unique=True, editable=False, primary_key=True)
     name = models.CharField(max_length=100)
     description = models.TextField()
-    image = models.ForeignKey('Common.Image', on_delete=models.CASCADE)
+    image = models.ForeignKey('Common.Image', on_delete=models.CASCADE, null=True, blank=True)
     parent = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

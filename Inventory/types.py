@@ -3,30 +3,48 @@ import graphene
 from Common.types import ImageInput
 
 class ItemStatusEnum(graphene.Enum):
-    AVAILABLE = "available"
-    OUT_OF_STOCK = "out_of_stock"
-    COMING_SOON = "comming_soon"
-    DISCONTINUED = "discontinued"
+    DRAFT = "draft"
+    PUBLISHED = "published"
+    UNPUBLISHED = "unpublished"
 
 class FieldTypeEnum(graphene.Enum):
     PARAGRAPH = "paragraph"
     LIST = "list"
+    DICT = "dict"
 
 class ItemVariantInfoObject(graphene.ObjectType):
     name = graphene.String()
     value = graphene.String()
     available = graphene.Boolean()
 
+class ItemSeoObject(graphene.ObjectType):
+    title = graphene.String()
+    description = graphene.String()
+    keywords = graphene.List(graphene.String)
+
+class ItemSeoInput(graphene.InputObjectType):
+    title = graphene.String()
+    description = graphene.String()
+    slug = graphene.String()
+    keywords = graphene.List(graphene.String)
+
 class ParagraphFieldData(graphene.ObjectType):
-    paragraphs = graphene.List(graphene.String)
+    paragraph = graphene.String()
 
 class ListFieldData(graphene.ObjectType):
     list = graphene.List(graphene.String)
 
+class DictFieldDataDict(graphene.ObjectType):
+    key = graphene.String()
+    value = graphene.String()
+
+class DictFieldData(graphene.ObjectType):
+    dict = graphene.List(DictFieldDataDict)
+
 class TextJsonFieldData(graphene.Union):
 
     class Meta:
-        types = (ParagraphFieldData, ListFieldData )
+        types = (ParagraphFieldData, ListFieldData, DictFieldData )
 
     @classmethod
     def resolve_type(cls, instance, info):
@@ -35,6 +53,8 @@ class TextJsonFieldData(graphene.Union):
             return ParagraphFieldData
         if 'list' in instance:
             return ListFieldData
+        if 'dict' in instance:
+            return DictFieldData
         return None
 
 class TextJsonFieldObject(graphene.ObjectType):
@@ -60,37 +80,27 @@ class ItemExtraField(graphene.InputObjectType):
     type = graphene.String(required=True)
     data = graphene.List(ItemExtraFieldData, required=True)
 
-
-class BaseItemInput(graphene.InputObjectType):
-    teaser = graphene.String()
-    images = graphene.List(ImageInput)
-    tags = graphene.List(graphene.String)
-    status = graphene.Field(ItemStatusEnum)
-    shipping_cost = graphene.Float()
-    can_return = graphene.Boolean()
-    return_time = graphene.Int()
-    return_policy = graphene.String()
-    brand = graphene.String()
-    extra_fields = graphene.List(ItemExtraField)
-
-class NewItemInput(BaseItemInput):
-    sku = graphene.String(required=True)
-    name = graphene.String(required=True)
-    description = graphene.JSONString(required=True)
-    image = ImageInput(required=True)
-    price = graphene.Float(required=True)
-    category = graphene.String(required=True)
+class NewItemInput(graphene.InputObjectType):
     vendor =  graphene.String(required=True)
 
 
-class UpdateItemInput(NewItemInput):
+class UpdateItemInput(graphene.InputObjectType):
+    teaser = graphene.String()
+    tags = graphene.List(graphene.String)
+    status = graphene.Field(ItemStatusEnum)
+    can_return = graphene.Boolean()
+    return_time = graphene.Int()
+    brand = graphene.String()
+    extra_fields = graphene.List(ItemExtraField)
     sku = graphene.String()
     name = graphene.String()
     description = graphene.JSONString()
-    image = ImageInput()
     price = graphene.Float()
     category = graphene.String()
-
+    tax = graphene.Boolean()
+    compare_price = graphene.Float()
+    cost = graphene.Float()
+    seo = graphene.Field(ItemSeoInput)
 
 class CategoryInput(graphene.InputObjectType):
     name = graphene.String(required=True)

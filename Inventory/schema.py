@@ -6,15 +6,17 @@ from graphene_django.types import DjangoObjectType
 from Admin.models import Brand
 from Api import relay
 from Common.exceptions import InvalidImageException, InvalidModelIdException, UnAuthorizedException
-from Common.models import Image
-from Common.tools import ImageHandler
-from Inventory.models import Item, Category, Order, OrderItem, Inventory, ItemVariation, ItemReview, Tag
-from Inventory.types import CategoryInput, CategoryUpdateInput, ItemExtraFieldObject, ItemVariantInfoObject, NewItemInput, TextJsonFieldData, TextJsonFieldObject, UpdateItemInput
+from Common.models import Image, ItemMedia
+from Common.tools import ImageHandler, MediaHandler
+from Common.types import ImageInput, MediaInput
+from Inventory.models import Item, Category, Order, OrderItem, Inventory, ItemVariation, ItemReview, Tag, ItemVariantValue
+from Inventory.types import CategoryInput, CategoryUpdateInput, ItemExtraFieldObject, ItemSeoObject, ItemVariantInfoObject, NewItemInput, TextJsonFieldData, TextJsonFieldObject, UpdateItemInput
 from Vendor.models import Vendor
 
 class ItemObject(DjangoObjectType):
     description = graphene.List(TextJsonFieldObject)
     extra_fields = graphene.List(ItemExtraFieldObject)
+    seo = ItemSeoObject()
 
     class Meta:
         model = Item
@@ -42,6 +44,22 @@ class ItemObject(DjangoObjectType):
             return None
         except:
             return None
+        
+    def resolve_extra_fields(self, info):
+        try:
+            if self.extra_fields:
+                return self.extra_fields
+            return None
+        except:
+            return None
+        
+    def resolve_seo(self, info):
+        try:
+            if self.seo:
+                return self.seo
+            return None
+        except:
+            return None
 
 class CategoryObject(DjangoObjectType):
     class Meta:
@@ -49,6 +67,9 @@ class CategoryObject(DjangoObjectType):
         exclude = ('created_at', 'updated_at')
         filter_fields = {
             'name': ['exact', 'icontains', 'istartswith'],
+            'parent': ['exact'],
+            'priority': ['exact', 'gt', 'gte', 'lt', 'lte'],
+            'id': ['exact'],
         }
         interfaces= (relay.Node, )
         use_connection = True
@@ -90,14 +111,22 @@ class InventoryObject(DjangoObjectType):
         use_connection = True
 
 class ItemVariationObject(DjangoObjectType):
-    info = graphene.Field(ItemVariantInfoObject)
-
     class Meta:
         model = ItemVariation
         fields = '__all__'
         interfaces= (relay.Node, )
         use_connection = True
 
+class ItemVariantValueObject(DjangoObjectType):
+    class Meta:
+        model = ItemVariantValue
+        fields = '__all__'
+        filter_fields = {
+            'variant': ['exact'],
+            'value': ['exact', 'icontains', 'istartswith'],
+        }
+        interfaces= (relay.Node, )
+        use_connection = True
 
 class ItemReviewObject(DjangoObjectType):
     
@@ -134,60 +163,75 @@ class CreateItem(graphene.Mutation):
     message = graphene.String()
 
     def mutate(self, info, input: NewItemInput):
-        if not info.context.user.is_authenticated:
+        user = info.context.user
+        if not user.is_authenticated or not user.is_vendor:
             raise UnAuthorizedException()
-        elif not info.context.user.type.lower() == 'vendor':
+
+        try:
+            vendor = Vendor.objects.get(id=input.vendor)
+            if not vendor: raise InvalidModelIdException(model="Vendor")
+
+            item = Item(
+                vendor=vendor,
+            )
+            item.save()
+            return CreateItem(item=item, success=True, message="Item created successfully")
+        except:
+            return CreateItem(item=None, success=False, message="An error occurred while creating item")
+        
+
+class ItemImageUpdate(graphene.Mutation):
+    class Input:
+        key = graphene.String(required=True)
+        image = ImageInput(required=True)
+
+    item = graphene.Field(ItemObject)
+    success = graphene.Boolean()
+    message = graphene.String()
+
+    @classmethod
+    def mutate(cls, root, info, key, image):
+        user = info.context.user
+        if not user.is_authenticated or not user.is_vendor:
             raise UnAuthorizedException()
         
-        try: vendor = Vendor.objects.get(key=input.vendor)
-        except Vendor.DoesNotExist: raise InvalidModelIdException(model="Vendor")
+        try: item = Item.objects.get(key=key)
+        except Item.DoesNotExist: raise InvalidModelIdException(model="Item")
         
-        try: category = Category.objects.get(id=input.category)
-        except Category.DoesNotExist: raise InvalidModelIdException(model="Category")
+        try:
+            image = ImageHandler(image).auto_image()
+            if not image or not isinstance(image, Image): raise InvalidImageException()
+            item.image = image
+            item.save()
+            return ItemImageUpdate(item=item, success=True, message="Image updated successfully")
+        except:
+            return ItemImageUpdate(item=None, success=False, message="An error occurred while updating image")
 
-        brand = None
-        if input.brand:
-            try: brand = Brand.objects.get(id=input.brand)
-            except Brand.DoesNotExist: raise InvalidModelIdException(model="Brand")
+class ItemMediaUpdate(graphene.Mutation):
+    class Input:
+        key = graphene.String(required=True)
+        media = graphene.List(MediaInput, required=True)
 
-        if not vendor or not category: raise InvalidModelIdException(model="Vendor or Category")
+    item = graphene.Field(ItemObject)
 
-        image = ImageHandler(input.image).auto_image()
-
-        if not image or not isinstance(image, Image): raise InvalidImageException()
-
-        item = Item(
-            sku=input.sku,
-            name=input.name,
-            teaser=input.teaser,
-            description=input.description,
-            image=image,
-            status=input.status,
-            price=input.price,
-            delivery_time=input.delivery_time,
-            shipping_cost=input.shipping_cost,
-            can_return=input.can_return,
-            return_time=input.return_time,
-            return_policy=input.return_policy,
-            category=category,
-            vendor=vendor,
-            brand=brand,
-            extra_fields=input.extra_fields
-        )
-
-        if input.tags:
-            for tag in input.tags:
-                tag, new = Tag.objects.get_or_create(name=tag)
-                item.tags.add(tag)
-
-        if input.images:
-            for image in input.images:
-                image = ImageHandler(image).auto_image()
-                if image and isinstance(image, Image):
-                    item.images.add(image)
-
-        item.save()
-        return CreateItem(item=item, success=True, message="Item created successfully")
+    @classmethod
+    def mutate(cls, root, info, key, media):
+        user = info.context.user
+        if not user.is_authenticated or not user.is_vendor:
+            raise UnAuthorizedException()
+        
+        try: item = Item.objects.get(key=key)
+        except Item.DoesNotExist: raise InvalidModelIdException(model="Item")
+        
+        try:
+            for _media in media:
+                media = MediaHandler(_media).auto_media()
+                if not media or not isinstance(media, ItemMedia): raise InvalidImageException()
+                item.media.add(media)
+            item.save()
+            return ItemMediaUpdate(item=item)
+        except:
+            return ItemMediaUpdate(item=None)
 
 class UpdateItem(graphene.Mutation):
 
@@ -212,8 +256,6 @@ class UpdateItem(graphene.Mutation):
             if input.name: item.name = input.name
             if input.teaser: item.teaser = input.teaser
             if input.description: item.description = input.description
-            if input.image:
-                item.image = ImageHandler(input.image).auto_image()
             if input.price: item.price = input.price
             if input.category:
                 try: item.category = Category.objects.get(id=input.category)
@@ -224,20 +266,17 @@ class UpdateItem(graphene.Mutation):
                 try: item.brand = Brand.objects.get(id=input.brand)
                 except Brand.DoesNotExist: raise InvalidModelIdException(model="Brand")
             if input.status: item.status = input.status
-            if input.shipping_cost: item.shipping_cost = input.shipping_cost
             if type(input.can_return) == bool: item.can_return = input.can_return
+            if type(input.tax) == bool: item.tax = input.tax
+            if input.cost: item.cost = input.cost
+            if input.compare_price: item.compare_price = input.compare_price
             if input.return_time: item.return_time = input.return_time
-            if input.return_policy: item.return_policy = input.return_policy
             if input.extra_fields: item.extra_fields = input.extra_fields
+            if input.seo: item.seo = input.seo
             if input.tags:
                 for tag in input.tags:
                     tag, new = Tag.objects.get_or_create(name=tag)
                     item.tags.add(tag)
-            if input.images:
-                for image in input.images:
-                    image = ImageHandler(image).auto_image()
-                    if image and isinstance(image, Image):
-                        item.images.add(image)
             item.save()
             return UpdateItem(item=item, success=True, message="Item updated successfully")
         except Exception as e:
@@ -521,6 +560,8 @@ class Mutation(graphene.ObjectType):
     create_item = CreateItem.Field()
     update_item = UpdateItem.Field()
     delete_item = DeleteItem.Field()
+    update_item_image = ItemImageUpdate.Field()
+    update_item_media = ItemMediaUpdate.Field()
 
     create_category = CreateCategory.Field()
     update_category = UpdateCategory.Field()

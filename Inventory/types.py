@@ -68,8 +68,8 @@ class ShippingInfoObject(graphene.ObjectType):
     unit = graphene.String()
 
     def resolve_weight(self, info):
-        if self.weight:
-            return float(self.weight)
+        if self['weight']:
+            return float(self['weight'])
         else: return None
 
 class ItemExtraFieldData(graphene.InputObjectType):
@@ -117,7 +117,7 @@ class UpdateItemInput(graphene.InputObjectType):
 class CategoryInput(graphene.InputObjectType):
     name = graphene.String(required=True)
     description = graphene.String()
-    image = ImageInput(required=True)
+    image = ImageInput()
     parent = graphene.String()
     priority = graphene.Int()
 

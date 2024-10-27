@@ -354,6 +354,7 @@ class AddressInput(graphene.InputObjectType):
     country = graphene.String(required=True)
     postal_code = graphene.String(required=True)
     phone = graphene.String(required=True)
+    is_default = graphene.Boolean()
 
 class AddressMutation(graphene.Mutation):
     class Arguments:
@@ -368,7 +369,16 @@ class AddressMutation(graphene.Mutation):
         user = info.context.user
         if user.is_anonymous:
             return AddressMutation(success=False, message="User is not authenticated")
-        address = Address.objects.create(user=user, **input)
+        address = Address(user=user)
+        address.address_line_1 = input.line1
+        address.address_line_2 = input.line2
+        address.city = input.city
+        address.state = input.state
+        address.country = input.country
+        address.postal_code = input.postal_code
+        address.phone = input.phone
+        address.is_default = input.is_default
+        address.save()
         return AddressMutation(success=True, message="Address added", address=address)
     
 class UpdateAddressMutation(graphene.Mutation):
@@ -388,8 +398,8 @@ class UpdateAddressMutation(graphene.Mutation):
         address = Address.objects.filter(user=user, id=address_id).first()
         if not address:
             return UpdateAddressMutation(success=False, message="Address not found")
-        address.line1 = input.line1
-        address.line2 = input.line2
+        address.address_line_1 = input.line1
+        address.address_line_2 = input.line2
         address.city = input.city
         address.state = input.state
         address.country = input.country

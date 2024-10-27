@@ -41,7 +41,7 @@ class ItemObject(DjangoObjectType):
         }
         interfaces= (relay.Node, )
         use_connection = True
-
+        
 
     def resolve_description(self, info):
         try:

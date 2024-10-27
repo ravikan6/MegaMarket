@@ -1,3 +1,4 @@
+from decimal import Decimal
 from time import timezone
 import graphene
 from graphene_django.filter import DjangoFilterConnectionField
@@ -10,7 +11,7 @@ from Common.models import Image, ItemMedia
 from Common.tools import ImageHandler, MediaHandler
 from Common.types import ImageInput, MediaInput
 from Inventory.models import Item, Category, Order, OrderItem, Inventory, ItemVariation, ItemReview, Tag, ItemVariantValue
-from Inventory.types import CategoryInput, CategoryUpdateInput, ItemExtraFieldObject, ItemSeoObject, ItemVariantInfoObject, NewItemInput, TextJsonFieldData, TextJsonFieldObject, UpdateItemInput
+from Inventory.types import CategoryInput, CategoryUpdateInput, ItemExtraFieldObject, ItemSeoObject, ItemVariantInfoObject, NewItemInput, ShippingInfoObject, TextJsonFieldData, TextJsonFieldObject, UpdateItemInput
 from Vendor.models import Vendor
 
 class ItemObject(DjangoObjectType):
@@ -18,7 +19,7 @@ class ItemObject(DjangoObjectType):
     info = graphene.List(TextJsonFieldObject)
     extra_fields = graphene.List(ItemExtraFieldObject)
     seo = graphene.Field(ItemSeoObject)
-
+    shipping = graphene.Field(ShippingInfoObject)
     desc_json = graphene.JSONString()
     seo_json = graphene.JSONString()
     extra_fields_json = graphene.JSONString()
@@ -233,6 +234,8 @@ class ItemMediaUpdate(graphene.Mutation):
         media = graphene.List(MediaInput, required=True)
 
     item = graphene.Field(ItemObject)
+    success = graphene.Boolean()
+    message = graphene.String()
 
     @classmethod
     def mutate(cls, root, info, key, media):
@@ -249,9 +252,9 @@ class ItemMediaUpdate(graphene.Mutation):
                 if not media or not isinstance(media, ItemMedia): raise InvalidImageException()
                 item.media.add(media)
             item.save()
-            return ItemMediaUpdate(item=item)
+            return ItemMediaUpdate(item=item, success=True, message="Media updated successfully")
         except:
-            return ItemMediaUpdate(item=None)
+            return ItemMediaUpdate(item=None, success=False, message="An error occurred while updating media")
 
 class UpdateItem(graphene.Mutation):
 
@@ -264,7 +267,7 @@ class UpdateItem(graphene.Mutation):
     message = graphene.String()
 
     @classmethod
-    def mutate(cls, root, info, key, input):
+    def mutate(cls, root, info, key, input: UpdateItemInput | None):
         user = info.context.user
         if not user.is_authenticated or not user.is_vendor:
             raise UnAuthorizedException()
@@ -275,22 +278,27 @@ class UpdateItem(graphene.Mutation):
             if input.sku: item.sku = input.sku
             if input.name: item.name = input.name
             if input.teaser: item.teaser = input.teaser
+            if input.slug: item.slug = input.slug
             if input.description: item.description = input.description
-            if input.price: item.price = input.price
             if input.category:
                 try: item.category = Category.objects.get(id=input.category)
                 except Category.DoesNotExist: raise InvalidModelIdException(model="Category")
             if input.brand:
                 try: item.brand = Brand.objects.get(id=input.brand)
                 except Brand.DoesNotExist: raise InvalidModelIdException(model="Brand")
-            if input.status: item.status = input.status
+            if input.status: item.status = input.status.value
             if type(input.can_return) == bool: item.can_return = input.can_return
             if type(input.tax) == bool: item.tax = input.tax
-            if input.cost: item.cost = input.cost
-            if input.compare_price: item.compare_price = input.compare_price
+            if input.cost:
+                item.cost = Decimal(input.cost)
+            if input.compare_price:
+                item.compare_price = Decimal(input.compare_price)
+            if input.price:
+                item.price = Decimal(input.price)
             if input.return_time: item.return_time = input.return_time
             if input.extra_fields: item.extra_fields = input.extra_fields
             if input.seo: item.seo = input.seo
+            if input.shipping: item.shipping  = input.shipping
             if input.tags:
                 for tag in input.tags:
                     tag, new = Tag.objects.get_or_create(name=tag)

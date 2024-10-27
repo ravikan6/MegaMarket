@@ -153,6 +153,6 @@ class MediaUrlBuilder:
                 {'quality': quality or 'auto'},
                 {'effect': effect} if effect else None
             ]
-            url = CloudinaryImage(self.media.url).build_url
+            url = CloudinaryImage(self.media.url).build_url(transformation=transformation)
             return url
         return self.media.url

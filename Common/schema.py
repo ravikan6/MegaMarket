@@ -14,7 +14,7 @@ class ImageCropEnum(graphene.Enum):
 class ImageObject(DjangoObjectType):
     public_id = graphene.String()
     blur_url = graphene.String()
-    has_image = graphene.Boolean()
+    has_image = graphene.Boolean(required=True)
     url = graphene.String(
         width=graphene.Int(),
         height=graphene.Int(),
@@ -54,7 +54,7 @@ class ImageObject(DjangoObjectType):
 class ItemMediaObject(DjangoObjectType):
     public_id = graphene.String()
     blur_url = graphene.String()
-    has_image = graphene.Boolean()
+    has_image = graphene.Boolean(required=True)
     url = graphene.String(
         width=graphene.Int(),
         height=graphene.Int(),

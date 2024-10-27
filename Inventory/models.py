@@ -54,7 +54,8 @@ class Item(models.Model):
     category = models.ForeignKey('Category', on_delete=models.CASCADE, null=True, blank=True)
     vendor = models.ForeignKey('Vendor.Vendor', on_delete=models.CASCADE)
     brand = models.ForeignKey('Admin.Brand', on_delete=models.CASCADE, null=True, blank=True)
-
+    shipping = models.JSONField(null=True, blank=True)
+    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(null=True, blank=True)
     

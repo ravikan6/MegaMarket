@@ -62,6 +62,16 @@ class TextJsonFieldObject(graphene.ObjectType):
     type = graphene.String()
     data = graphene.Field(TextJsonFieldData) 
 
+class ShippingInfoObject(graphene.ObjectType):
+    is_physical = graphene.Boolean()
+    weight = graphene.Float()
+    unit = graphene.String()
+
+    def resolve_weight(self, info):
+        if self.weight:
+            return float(self.weight)
+        else: return None
+
 class ItemExtraFieldData(graphene.InputObjectType):
     name = graphene.String()
     value = graphene.String()
@@ -86,6 +96,8 @@ class NewItemInput(graphene.InputObjectType):
 
 class UpdateItemInput(graphene.InputObjectType):
     teaser = graphene.String()
+    slug = graphene.String()
+    shipping = graphene.JSONString()
     tags = graphene.List(graphene.String)
     status = graphene.Field(ItemStatusEnum)
     can_return = graphene.Boolean()

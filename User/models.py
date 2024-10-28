@@ -51,6 +51,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     is_staff = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
     date_joined = models.DateTimeField(_('date joined'), default=timezone.now)
+    phone_number = models.CharField(max_length=30, null=True, blank=True)
     type = models.CharField(max_length=20, default='customer', choices=(
         ('user', 'User'),
         ('customer', 'Customer'),

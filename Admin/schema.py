@@ -3,6 +3,7 @@ import graphene
 from graphene_django import DjangoObjectType
 from graphene_django.filter import DjangoFilterConnectionField
 from Admin.models import Banner, BannerGroup
+from Admin.payments import Payments
 from Api import relay
 from Common.schema import BannerGroupObject, BannerObject
 from Common.tools import ImageHandler

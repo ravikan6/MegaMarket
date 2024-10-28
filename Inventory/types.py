@@ -127,3 +127,52 @@ class CategoryUpdateInput(graphene.InputObjectType):
     image = ImageInput()
     parent = graphene.String()
     priority = graphene.Int()
+
+
+class OrderItemInput(graphene.InputObjectType):
+    item = graphene.String(required=True)
+    quantity = graphene.Int(required=True)
+    price = graphene.Float(required=True)
+    total = graphene.Float(required=True)
+    variants = graphene.List(graphene.String)
+
+
+class CreateOrderInput(graphene.InputObjectType):
+    items = graphene.List(OrderItemInput, required=True)
+    total = graphene.Float(required=True)
+    shipping = graphene.Float()
+    tax = graphene.Float()
+    discount = graphene.Float()
+    shipping_address = graphene.String(required=True)
+    billing_address = graphene.String(required=True)
+    payment_method = graphene.String(required=True)
+
+class CreateOrderRes(graphene.ObjectType):
+    payment_session_id = graphene.String(required=True)
+    order_id = graphene.String(required=True)
+    amount = graphene.Float(required=True)
+    status = graphene.String()
+    method = graphene.String()
+    expiry_time = graphene.String()
+
+class VerifyOrderInput(graphene.InputObjectType):
+    order_id = graphene.String(required=True)
+    token = graphene.String(required=True)
+
+
+class PaymentDetailsMetaObject(graphene.ObjectType):
+    return_url = graphene.String()
+
+class PaymentDetailsObject(graphene.ObjectType):
+    order_id = graphene.String()
+    entity = graphene.String()
+    order_currency = graphene.String()
+    order_amount = graphene.Float()
+    order_status = graphene.String()
+    payment_session_id = graphene.String()
+    order_expiry_time = graphene.String()
+    order_note = graphene.String()
+    created_at = graphene.String()
+    order_splits = graphene.List(graphene.String)
+    order_meta = graphene.Field(PaymentDetailsMetaObject)
+    order_tags = graphene.String()

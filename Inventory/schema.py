@@ -5,13 +5,14 @@ from graphene_django.filter import DjangoFilterConnectionField
 from graphene_django.types import DjangoObjectType
 
 from Admin.models import Brand
+from Admin.payments import Payments
 from Api import relay
 from Common.exceptions import InvalidImageException, InvalidModelIdException, UnAuthorizedException
 from Common.models import Image, ItemMedia
 from Common.tools import ImageHandler, MediaHandler
 from Common.types import ImageInput, MediaInput
 from Inventory.models import Item, Category, Order, OrderItem, Inventory, ItemVariation, ItemReview, Tag, ItemVariantValue
-from Inventory.types import CategoryInput, CategoryUpdateInput, ItemExtraFieldObject, ItemSeoObject, ItemVariantInfoObject, NewItemInput, ShippingInfoObject, TextJsonFieldData, TextJsonFieldObject, UpdateItemInput
+from Inventory.types import CategoryInput, CategoryUpdateInput, CreateOrderInput, CreateOrderRes, ItemExtraFieldObject, ItemSeoObject, ItemVariantInfoObject, NewItemInput, PaymentDetailsObject, ShippingInfoObject, TextJsonFieldData, TextJsonFieldObject, UpdateItemInput, VerifyOrderInput
 from Vendor.models import Vendor
 
 class ItemObject(DjangoObjectType):
@@ -99,16 +100,26 @@ class CategoryObject(DjangoObjectType):
 
 
 class OrderObject(DjangoObjectType):
+    payment = graphene.Field(PaymentDetailsObject)
+
     class Meta:
         model = Order
         fields = '__all__'
         filter_fields = {
+            'order_id': ['exact'],
             'user': ['exact'],
             'status': ['exact'],
             'created_at': ['exact', 'gt', 'gte', 'lt', 'lte'],
         }
         interfaces= (relay.Node, )
         use_connection = True
+
+    def resolve_payment(self, info):
+        try:
+            p = Payments().get_info(self.order_id)
+            return p
+        except:
+            return None
 
 class OrderItemObject(DjangoObjectType):
     class Meta:
@@ -558,6 +569,120 @@ class DeleteItemReview(graphene.Mutation):
         return DeleteItemReview(success=True, message="Review deleted successfully")
     
 
+class CreateOrder(graphene.Mutation):
+    
+    class Input:
+        input = CreateOrderInput(required=True)
+
+    success = graphene.Boolean()
+    message = graphene.String()
+    order = graphene.Field(CreateOrderRes)
+
+    @classmethod
+    def mutate(cls, root, info, input: CreateOrderInput):
+        user = info.context.user
+        if not user.is_authenticated or not user.is_active:
+            raise UnAuthorizedException()
+        try:
+            shipping_address = user.addresses.get(id=input.shipping_address)
+            billing_address = user.addresses.get(id=input.billing_address)
+            if not shipping_address or not billing_address:
+                raise Exception('Invalid shipping or billing address')
+        except:
+            return CreateOrder(order=None, success=False, message="Invalid shipping or billing address")
+
+        try:
+            order = Order(
+                user=user,
+                total=Decimal(input.total),
+                payment_method=input.payment_method or 'other',
+                shipping_address=shipping_address,
+                billing_address=billing_address,
+            )
+            order.save()
+        except Exception as e:
+            return CreateOrder(order=None, success=False, message="An error occurred while creating order")
+        
+        try:
+            for item in input.items:
+                try: _item = Item.objects.get(key=item.item) 
+                except Item.DoesNotExist:         
+                    order.delete()
+                    return CreateOrder(order=None, success=False, message="Invalid item")
+                order_item = OrderItem(
+                    order=order,
+                    item=_item,
+                    quantity=item.quantity,
+                    price=Decimal(item.price),
+                    total=Decimal(item.total),
+                )
+                order_item.save()
+                if item.variants and len(item.variants) > 0:
+                    for variant in item.variants:
+                        try: _variant = ItemVariation.objects.get(id=variant)
+                        except ItemVariation.DoesNotExist:
+                            order.delete()
+                            return CreateOrder(order=None, success=False, message="Invalid item variant")
+                        order_item.variants.add(_variant)
+        except Exception as e:
+            order.delete()
+            return CreateOrder(order=None, success=False, message="An error occurred while creating order items")
+        
+        try:
+            if order and order.order_id:
+                payment = Payments().create_order(user, order)
+                if payment and payment.status_code == 200:
+                    order.extra = payment.raw_data
+                    order.save()
+                    res = CreateOrderRes()
+                    res.payment_session_id = payment.data.payment_session_id
+                    res.order_id = order.order_id
+                    res.amount = float(order.total)
+                    res.status = order.status
+                    res.method = order.payment_method
+                    res.expiry_time = str(payment.data.order_expiry_time)
+
+                    return CreateOrder(
+                    success=True, 
+                    message="Order created successfully",
+                    order=res
+                    )
+                else: raise Exception('Error creating order with Cashfree.')
+        except Exception as e:
+            order.delete()
+            return CreateOrder(order=None, success=False, message="An error occurred while creating order")
+    
+
+class VerifyGetOrder(graphene.Mutation):
+    
+    class Input:
+        input = VerifyOrderInput(required=True)
+
+    success = graphene.Boolean()
+    order = OrderObject()
+    payment = PaymentDetailsObject()
+
+    def mutate(self, info, input: VerifyOrderInput):
+        try:
+            order = Order.objects.get(order_id=input.order_id)
+        except:
+            return VerifyGetOrder(success=False)
+        isValid = Payments().verify_token(token=input.token)
+        if not isValid: return VerifyGetOrder(success=False)
+        payment = Payments().get_info(order_id=input.order_id)
+        if not payment: return VerifyGetOrder(success=False)
+        if payment.order_status == 'PAID':
+            order.payment_status = 'paid'
+        elif payment.order_status == 'ACTIVE':
+            order.payment_status = 'pending'
+        elif payment.order_status == 'EXPIRED':
+            order.payment_status = 'failed'
+        elif payment.order_status == 'TERMINATED':
+            order.payment_status = 'failed'
+        order.save()
+        return VerifyGetOrder(success=True, order=order, payment=payment)
+
+
 '''********** Query **********'''
 
 class Query(graphene.ObjectType):
@@ -600,3 +725,6 @@ class Mutation(graphene.ObjectType):
     create_item_review = CreateItemReview.Field()
     update_item_review = UpdateItemReview.Field()
     delete_item_review = DeleteItemReview.Field()
+
+    create_order = CreateOrder.Field()
+    verify_order = VerifyGetOrder.Field()

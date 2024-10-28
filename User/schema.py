@@ -354,6 +354,7 @@ class AddressInput(graphene.InputObjectType):
     country = graphene.String(required=True)
     postal_code = graphene.String(required=True)
     phone = graphene.String(required=True)
+    name = graphene.String(required=True)
     is_default = graphene.Boolean()
 
 class AddressMutation(graphene.Mutation):
@@ -365,7 +366,7 @@ class AddressMutation(graphene.Mutation):
     address = graphene.Field(AddressObject)
 
     @classmethod
-    def mutate(cls, root, info, input):
+    def mutate(cls, root, info, input: AddressInput):
         user = info.context.user
         if user.is_anonymous:
             return AddressMutation(success=False, message="User is not authenticated")
@@ -375,9 +376,10 @@ class AddressMutation(graphene.Mutation):
         address.city = input.city
         address.state = input.state
         address.country = input.country
-        address.postal_code = input.postal_code
+        address.zip_code = input.postal_code
         address.phone = input.phone
         address.is_default = input.is_default
+        address.name = input.name
         address.save()
         return AddressMutation(success=True, message="Address added", address=address)
     
@@ -391,7 +393,7 @@ class UpdateAddressMutation(graphene.Mutation):
     address = graphene.Field(AddressObject)
 
     @classmethod
-    def mutate(cls, root, info, input, address_id):
+    def mutate(cls, root, info, input: AddressInput, address_id):
         user = info.context.user
         if user.is_anonymous:
             return UpdateAddressMutation(success=False, message="User is not authenticated")
@@ -403,8 +405,9 @@ class UpdateAddressMutation(graphene.Mutation):
         address.city = input.city
         address.state = input.state
         address.country = input.country
-        address.postal_code = input.postal_code
+        address.zip_code = input.postal_code
         address.phone = input.phone
+        address.name = input.name
         address.save()
         return UpdateAddressMutation(success=True, message="Address updated", address=address)
 

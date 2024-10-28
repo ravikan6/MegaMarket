@@ -659,8 +659,8 @@ class VerifyGetOrder(graphene.Mutation):
         input = VerifyOrderInput(required=True)
 
     success = graphene.Boolean()
-    order = graphene.Field(OrderObject())
-    payment = graphene.Field(PaymentDetailsObject())
+    order = graphene.Field(OrderObject)
+    payment = graphene.Field(PaymentDetailsObject)
 
     def mutate(self, info, input: VerifyOrderInput):
         try:

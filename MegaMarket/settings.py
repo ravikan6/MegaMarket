@@ -56,6 +56,16 @@ CHANNEL_LAYERS = {
     },
 }
 
+OAUTH2_PROVIDER = {
+    "OIDC_ENABLED": True,
+    "OIDC_RSA_PRIVATE_KEY": os.environ.get("OIDC_RSA_PRIVATE_KEY"),
+    "SCOPES": {
+        "openid": "OpenID Connect scope",
+        # ... any other scopes that you use
+    },
+    # ... any other settings you want
+}
+
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -63,6 +73,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'oauth2_provider',
     "corsheaders",
     "channels",
     "graphene_django",
@@ -82,11 +93,21 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     # 'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'oauth2_provider.middleware.OAuth2TokenMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
+AUTHENTICATION_BACKENDS = [
+    'oauth2_provider.backends.OAuth2Backend',
+    # Uncomment following if you want to access the admin
+    'django.contrib.auth.backends.ModelBackend',
+    '...',
+]
+
 ROOT_URLCONF = 'MegaMarket.urls'
+
+LOGIN_URL = '/admin/login/'
 
 TEMPLATES = [
     {

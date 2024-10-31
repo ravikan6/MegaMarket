@@ -346,7 +346,7 @@ class CreateCategory(graphene.Mutation):
     success = graphene.Boolean()
     message = graphene.String()
 
-    def mutate(self, info, input):
+    def mutate(self, info, input: CategoryInput):
         user = info.context.user
         if not user.is_authenticated or not user.is_admin:
             raise UnAuthorizedException()
@@ -356,13 +356,15 @@ class CreateCategory(graphene.Mutation):
             try: _parent = Category.objects.get(id=input.parent)
             except Item.DoesNotExist: raise InvalidModelIdException(model="Parent Category")
         try:
-            image = ImageHandler(input.image).auto_image()
-            if not image or not isinstance(image, Image): raise InvalidImageException()
+            _image = None
+            if (input.image):
+                _image = ImageHandler(input.image).auto_image()
+                if not _image or not isinstance(_image, Image): raise InvalidImageException()
 
             category = Category(
                 name=input.name,
                 description=input.description,
-                image=image,
+                image=_image,
                 parent=_parent,
                 priority=input.priority
             )
@@ -393,7 +395,8 @@ class UpdateCategory(graphene.Mutation):
             if input.description: category.description = input.description
             if input.image:
                 image = ImageHandler(input.image).auto_image()
-                if not image or not isinstance(image, Image): raise InvalidImageException()
+                if  image: 
+                    if not isinstance(image, Image): raise InvalidImageException()
                 category.image = image
             if input.parent:
                 try: category.parent = Category.objects.get(id=input.parent)

@@ -36,7 +36,7 @@ SECRET_KEY = 'django-insecure-^fvy-zxg)n(8gmm4!rg67tqk#op^s#vm_l2%(0zni$ympc9a47
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['*', 'localhost']
+ALLOWED_HOSTS = ['merabestie.com', 'www.merabestie.com', 'portal.merabestie.com', 'localhost']
 
 # Application definition
 
@@ -180,9 +180,9 @@ USE_I18N = True
 
 USE_TZ = True
 
-CSRF_COOKIE_SAMESITE = 'None'
+CSRF_COOKIE_SAMESITE = 'Lax'
 CSRF_COOKIE_SECURE = True
-SESSION_COOKIE_SAMESITE = 'None'
+SESSION_COOKIE_SAMESITE = 'Lax'
 SESSION_COOKIE_SECURE = True
 SESSION_COOKIE_HTTP_ONLY = True
 
@@ -191,9 +191,8 @@ CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://localhost:8000",
-    "https://ecommerce.collegejaankaar.in",
-    "https://megamart-alpha.vercel.app",
-    "https://www.collegejaankaar.in",
+    "https://portal.merabestie.com",
+    "https://merabestie.com",
 ]
 
 CORS_ALLOW_METHODS = [

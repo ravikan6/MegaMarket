@@ -201,6 +201,8 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:8000",
     "https://portal.merabestie.com",
     "https://merabestie.com",
+    "https://www.merabestie.com",
+    "http://www.merabestie.com",
 ]
 
 CORS_ALLOW_METHODS = [

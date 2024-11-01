@@ -32,6 +32,20 @@ class Image(models.Model):
     def get_url(self):
         return self.url
     
+    def get_https_url(self):
+        from Common.tools import ImageUrlBuilder
+        return ImageUrlBuilder(self).build_url()
+
+    def get_blur_url(self):
+        from Common.tools import ImageUrlBuilder
+        if self.provider == 'cloudinary' and self.url:
+            return ImageUrlBuilder(self).build_url(
+                width=10, height=10, crop='fill', quality=10, format='webp', effect={'blur': 200}
+            )
+        return ImageUrlBuilder(Image(url="74f98fbe6a8ada2db6ec26feb98f994e")).build_url(
+            width=10, height=10, crop='fill', quality=10, format='webp', effect={'blur': 200}
+        )
+    
 
 class ItemMedia(models.Model):
     id = models.CharField(max_length=40, unique=True, editable=False, primary_key=True)

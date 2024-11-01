@@ -59,6 +59,7 @@ CHANNEL_LAYERS = {
 }
 
 OAUTH2_PROVIDER = {
+    "OAUTH2_VALIDATOR_CLASS": "Admin.oauth_validators.CustomOAuth2Validator",
     "OIDC_ENABLED": True,
     "OIDC_RSA_PRIVATE_KEY": OIDC_RSA_PRIVATE_KEY,
     "SCOPES": {

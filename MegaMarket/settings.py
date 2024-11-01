@@ -15,6 +15,8 @@ from pathlib import Path
 import cloudinary
 from dotenv import load_dotenv
 
+from User.Utils.tools import OIDC_RSA_PRIVATE_KEY
+
 load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -58,10 +60,15 @@ CHANNEL_LAYERS = {
 
 OAUTH2_PROVIDER = {
     "OIDC_ENABLED": True,
-    "OIDC_RSA_PRIVATE_KEY": os.environ.get("OIDC_RSA_PRIVATE_KEY"),
+    "OIDC_RSA_PRIVATE_KEY": OIDC_RSA_PRIVATE_KEY,
     "SCOPES": {
         "openid": "OpenID Connect scope",
-        # ... any other scopes that you use
+        "profile": "Access to your profile information",
+        "email": "Access to your email address",
+        "address": "Access to your address information",
+        "phone": "Access to your phone number",
+        "read": "Read scope",
+        "write": "Write scope",
     },
     # ... any other settings you want
 }

@@ -1,4 +1,4 @@
-from time import timezone
+from django.utils import timezone
 import graphene
 from graphene_django import DjangoObjectType
 from graphene_django.filter import DjangoFilterConnectionField
@@ -36,7 +36,7 @@ class CreateBanner(graphene.Mutation):
     message = graphene.String()
 
     @classmethod
-    def mutate(cls, root, info, input):
+    def mutate(cls, root, info, input: BannerInput):
         user = info.context.user
         if not user.is_authenticated or not user.is_staff:
             raise Exception('You are not authorized to perform this action.')
@@ -46,7 +46,10 @@ class CreateBanner(graphene.Mutation):
             small_image_data = input.pop('small_image')
             small_image = ImageHandler(small_image_data).auto_image()
             input['small_image'] = small_image
-        banner = Banner.objects.create(image=image, **input)
+        banner = Banner(image=image)
+        for key, value in input.items():
+            setattr(banner, key, value)
+        banner.type = input.type.value
         return CreateBanner(banner=banner, success=True, message='Banner created successfully.')
 
 class UpdateBanner(graphene.Mutation):
@@ -59,7 +62,7 @@ class UpdateBanner(graphene.Mutation):
     message = graphene.String()
 
     @classmethod
-    def mutate(cls, root, info, id, input):
+    def mutate(cls, root, info, id, input: BannerUpdateInput):
         user = info.context.user
         if not user.is_authenticated or not user.is_staff:
             raise Exception('You are not authorized to perform this action.')
@@ -92,19 +95,23 @@ class CreateBannerGroup(graphene.Mutation):
     message = graphene.String()
 
     @classmethod
-    def mutate(cls, root, info, input):
+    def mutate(cls, root, info, input: BannerGroupInput):
         user = info.context.user
         if not user.is_authenticated or not user.is_staff:
             raise Exception('You are not authorized to perform this action.')
         banners = input.pop('banners')
+        new_banners = []
         for banner_id in banners:
             try:
                 banner = Banner.objects.get(id=banner_id)
                 if banner:
-                    input['banners'].add(banner)
+                    new_banners.append(banner)
             except Banner.DoesNotExist:
                 raise Exception(f'Banner with ID {banner_id} does not exist.')
-        banner_group = BannerGroup.objects.create(**input)
+        banner_group = BannerGroup(**input)
+        banner_group.save()
+        for banner in new_banners:
+            banner_group.banners.add(banner)
         return CreateBannerGroup(banner_group=banner_group, success=True, message='Banner group created successfully.')
 
 class UpdateBannerGroup(graphene.Mutation):
@@ -127,6 +134,7 @@ class UpdateBannerGroup(graphene.Mutation):
                 raise Exception(f'Banner group with ID {id} does not exist.')
             if 'banners' in input:
                 banners = input.pop('banners')
+                banner_group.banners.clear()
                 for banner_id in banners:
                     try:
                         banner = Banner.objects.get(id=banner_id)

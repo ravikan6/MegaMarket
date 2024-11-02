@@ -36,12 +36,14 @@ class BannerUpdateInput(graphene.InputObjectType):
 
 class BannerGroupInput(graphene.InputObjectType):
     title = graphene.String(required=True)
+    description = graphene.String()
     banners = graphene.List(graphene.String, required=True)
     location = graphene.String()
     is_active = graphene.Boolean()
 
 class BannerGroupUpdateInput(graphene.InputObjectType):
     title = graphene.String()
+    description = graphene.String()
     banners = graphene.List(graphene.String)
     location = graphene.String()
     is_active = graphene.Boolean()

@@ -50,6 +50,7 @@ class CreateBanner(graphene.Mutation):
         for key, value in input.items():
             setattr(banner, key, value)
         banner.type = input.type.value
+        banner.save()
         return CreateBanner(banner=banner, success=True, message='Banner created successfully.')
 
 class UpdateBanner(graphene.Mutation):
@@ -80,6 +81,7 @@ class UpdateBanner(graphene.Mutation):
         for key, value in input.items():
             if value:
                 setattr(banner, key, value)
+        banner.type = input.type.value if input.type else banner.type
         banner.is_active = input.get('is_active', banner.is_active)
         banner.updated_at = timezone.now()
         banner.save()

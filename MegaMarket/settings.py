@@ -38,7 +38,17 @@ SECRET_KEY = 'django-insecure-^fvy-zxg)n(8gmm4!rg67tqk#op^s#vm_l2%(0zni$ympc9a47
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['merabestie.com', 'www.merabestie.com', 'portal.merabestie.com', 'localhost']
+ALLOWED_HOSTS = [
+    'merabestie.com', 
+    'www.merabestie.com', 
+    'portal.merabestie.com', 
+    'www.portal.merabestie.com',
+    'localhost',
+    '52.66.101.190',
+    '3.109.102.144',
+    '3.111.60.173',
+    '52.66.25.127'
+]
 
 # Application definition
 

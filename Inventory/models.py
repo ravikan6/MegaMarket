@@ -304,7 +304,8 @@ class Order(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.pk:
-            self.order_id = generate(size=42)
+            _order_id = generate(alphabet='0123456789', size=13)
+            self.order_id = f"OD{_order_id}"
             self.key = generate(size=40)
         super().save(*args, **kwargs)
 

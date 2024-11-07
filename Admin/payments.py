@@ -45,6 +45,8 @@ class Payments:
             print(token)
             
             self.order_meta.return_url = f'{return_url}?order_id={order.order_id}&token={token}'
+            self.order_meta.notify_url = os.environ.get('CASHFREE_NOTIFY_URL')
+            print(self.order_meta.notify_url)
             self.order_meta.payment_methods = "cc,dc,ccc,nb,upi"
 
             create_order_request = CreateOrderRequest(

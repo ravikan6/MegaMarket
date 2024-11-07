@@ -20,12 +20,14 @@ from Api.urls import version_1
 from Api.views import image_upload
 from MegaMarket import settings
 from oauth2_provider import urls as oauth2_urls
+from Admin.urls import webhook
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/v1/', include(version_1)),
     path('upload_image/', image_upload, name='image_upload'),
     path("o/", include(oauth2_urls)),
+    path('webhook/', include(webhook)),
 ] 
 
 if settings.DEBUG:

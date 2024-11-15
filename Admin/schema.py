@@ -8,7 +8,7 @@ from Api import relay
 from Common.schema import BannerGroupObject, BannerObject
 from Common.tools import ImageHandler
 from Admin.types import BannerGroupInput, BannerGroupUpdateInput, BannerInput, BannerUpdateInput, PageInput, PageUpdateInput
-from .models import Page
+from .models import Page, RBoxImage, RBox
 
 
 class PageObject(DjangoObjectType):
@@ -20,6 +20,33 @@ class PageObject(DjangoObjectType):
             'title': ['exact', 'icontains'],
             'description': ['exact', 'icontains'],
             'is_last': ['exact'],
+            'created_at': ['exact', 'icontains'],
+            'updated_at': ['exact', 'icontains'],
+        }
+        interfaces = (relay.Node, )
+        use_connection = True
+
+class RBoxImageObject(DjangoObjectType):
+    class Meta:
+        model = RBoxImage
+        fields = '__all__'
+        filter_fields = {
+            'image': ['exact'],
+            'created_at': ['exact', 'icontains'],
+            'updated_at': ['exact', 'icontains'],
+        }
+        interfaces = (relay.Node, )
+        use_connection = True
+
+
+class RBoxObject(DjangoObjectType):
+    class Meta:
+        model = RBox
+        fields = '__all__'
+        filter_fields = {
+            'title': ['exact', 'icontains'],
+            'description': ['exact', 'icontains'],
+            'is_active': ['exact'],
             'created_at': ['exact', 'icontains'],
             'updated_at': ['exact', 'icontains'],
         }
@@ -207,6 +234,8 @@ class UpdatePage(graphene.Mutation):
 class Query(graphene.ObjectType):
     pages = DjangoFilterConnectionField(PageObject)
     page = relay.Node.Field(PageObject)
+    rboxes = DjangoFilterConnectionField(RBoxObject)
+    rbox = relay.Node.Field(RBoxObject)
 
 class Mutation(graphene.ObjectType):
     create_banner = CreateBanner.Field()

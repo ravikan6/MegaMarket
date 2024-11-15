@@ -102,3 +102,49 @@ class Page(models.Model):
         verbose_name = 'Page'
         verbose_name_plural = 'Pages'
         unique_together = ['slug', 'is_last']
+
+
+class RBoxImage(models.Model):
+    id = models.CharField(max_length=100, unique=True, editable=False, primary_key=True)
+    image = models.ForeignKey('Common.Image', on_delete=models.CASCADE)
+    title = models.CharField(max_length=100)
+    url = models.CharField(max_length=500)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(null=True, blank=True)
+
+    def save(self, *args, **kwargs):
+        if not self.id:
+            self.id = generate(size=40)
+        super(RBoxImage, self).save(*args, **kwargs)
+
+    def __str__(self):
+        return self.id
+    
+    class Meta:
+        db_table = 'rbox_image'
+        verbose_name = 'RBox Image'
+        verbose_name_plural = 'RBox Images' 
+
+
+class RBox(models.Model):
+    id = models.CharField(max_length=100, unique=True, editable=False, primary_key=True)
+    title = models.CharField(max_length=100)
+    description = models.TextField()
+    images = models.ManyToManyField(RBoxImage)
+    is_active = models.BooleanField(default=True)
+    priority = models.IntegerField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(null=True, blank=True)
+
+    def save(self, *args, **kwargs):
+        if not self.id:
+            self.id = generate(size=40)
+        super(RBox, self).save(*args, **kwargs)
+
+    def __str__(self):
+        return self.title
+    
+    class Meta:
+        db_table = 'rbox'
+        verbose_name = 'RBox'
+        verbose_name_plural = 'RBoxes'  

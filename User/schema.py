@@ -417,7 +417,7 @@ class RemoveFromWishlist(graphene.Mutation):
         return RemoveFromWishlist(success=True, message="Item removed from wishlist", wishlist=wishlist)
 
 
-class AddressTypeInputEnum(graphene.InputObjectType):
+class AddressTypeInputEnum(graphene.Enum):
     HOME = 'Home'
     OFFICE = 'Office'
     OTHER = 'Other'

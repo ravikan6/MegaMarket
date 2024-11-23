@@ -1,0 +1,44 @@
+# Django specific
+*.log
+*.pot
+*.pyc
+__pycache__/
+db.sqlite3
+media/
+static/
+
+# If you are using Django with Docker
+*.env
+docker-compose.override.yml
+
+# If you are using Django with Heroku
+*.env
+.venv/
+.venv/bin/
+.venv/lib/
+.venv/include/
+.venv/lib64/
+.venv/share/
+.venv/src/
+.venv/pyvenv.cfg
+
+# If you are using Django with virtualenv
+venv/
+ENV/
+env/
+env.bak/
+venv.bak/
+
+# If you are using Django with PyCharm
+.idea/
+
+# If you are using Django with VSCode
+.vscode/
+
+.htaccess
+_config.py
+passenger_wsgi.py
+start.sh
+supervisord.conf
+supervisord.pid
+tmp/

@@ -30,10 +30,16 @@ class RBoxImageObject(DjangoObjectType):
     class Meta:
         model = RBoxImage
         fields = '__all__'
+        filter_fields = {
+            'image': ['exact'],
+            'created_at': ['exact', 'icontains'],
+            'updated_at': ['exact', 'icontains'],
+        }
+        interfaces = (relay.Node, )
+        use_connection = True
 
 
 class RBoxObject(DjangoObjectType):
-
     class Meta:
         model = RBox
         fields = '__all__'

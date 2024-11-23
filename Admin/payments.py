@@ -99,10 +99,7 @@ class Payments:
             else: raise Exception("An error accured.")
         except:
             return None
-            
-            
+
 import razorpay
-client = razorpay.Client(auth=(os.environ.get('RAZORPAY_API_KEY'),os.environ.get('RAZORPAY_API_SECRET')))
-client.set_app_details({"title" : "MeraBestie - Django", "version" : "1.0.0"})
-
-
+client = razorpay.Client(auth=(os.environ.get('RAZORPAY_API_KEY'), os.environ.get('RAZORPAY_API_SECRET')))
+client.set_app_details({"title": "MeraBestie - Django", "version": "1.0.0"})

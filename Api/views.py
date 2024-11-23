@@ -13,6 +13,13 @@ def image_upload(request):
             context['error'] = 'No image provided'
         else:
             try:
+                image = upload_image(image)
+                context = {
+                    'url': image.build_url(),
+                    'public_id': image.public_id,
+                    'format': image.format
+                }
+            except Exception as e:
                 image = upload_image(image, use_filename_as_display_name=True, auto_tagging=0.5)
                 img = Image(
                     url=image.public_id,

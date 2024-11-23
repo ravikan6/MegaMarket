@@ -7,6 +7,7 @@ from Inventory.schema import Query as InventoryQuery, Mutation as InventoryMutat
 from Admin.schema import Query as AdminQuery, Mutation as AdminMutation
 from Vendor.schema import Query as VendorQuery, Mutation as VendorMutation
 
+
 class ValidateUPIResponse(graphene.ObjectType):
     success = graphene.Boolean()
     customer_name = graphene.String()
@@ -44,7 +45,6 @@ class ValidateUPIMutation(graphene.Mutation):
         vpa = response_data.get('vpa', '')
 
         return ValidateUPIResponse(success=success, customer_name=customer_name, vpa=vpa, res=str(response_data))
-
 
 class Query(UserQuery, CommonQuery, InventoryQuery, AdminQuery, VendorQuery):
     greet = graphene.String(name=graphene.String(default_value="stranger"))

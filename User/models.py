@@ -112,6 +112,12 @@ class Address(models.Model):
     zip_code = models.CharField(max_length=100)
     phone = models.CharField(max_length=100)
     is_default = models.BooleanField(default=False)
+    type = models.CharField(max_length=20, default='home', choices=(
+        ('home', 'Home'),
+        ('office', 'Office'),
+        ('other', 'Other'),
+    ))
+    is_billing = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(null=True, blank=True)
     
@@ -121,7 +127,7 @@ class Address(models.Model):
         super().save(*args, **kwargs)
     
     def __str__(self):
-        return self.name
+        return f"{self.name} - {self.user.username}"
     
     class Meta:
         db_table = 'address'
@@ -159,6 +165,7 @@ class CartItem(models.Model):
     cart = models.ForeignKey('Cart', on_delete=models.CASCADE, related_name='items')
     item = models.ForeignKey('Inventory.Item', on_delete=models.CASCADE)
     quantity = models.PositiveIntegerField(default=1)
+    variants = models.ManyToManyField('Inventory.ItemVariantValue', related_name='cart_items')
 
     def __str__(self):
         return f"{self.quantity} of {self.item.name} in cart {self.cart.id}"
@@ -171,7 +178,6 @@ class CartItem(models.Model):
 class Cart(models.Model):
     id = models.CharField(max_length=100, unique=True, editable=False, primary_key=True)
     user = models.OneToOneField('User', on_delete=models.CASCADE, related_name='cart', auto_created=True)
-    _items = models.ManyToManyField('Inventory.Item', through='CartItem', related_name='cart_items')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -179,7 +185,16 @@ class Cart(models.Model):
         if not self.pk:
             self.id = generate(size=28)
         super().save(*args, **kwargs)
+
+    def total(self):
+        total = 0
+        for item in self.items.all():
+            total += item.item.price * item.quantity
+        return total
     
+    def total_items(self):
+        return self.items.count()
+
     def __str__(self):
         return self.user.username
 

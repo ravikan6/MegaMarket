@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Inventory, Item, Category, ItemReview, Order, OrderItem, Tag, ItemVariation
+from .models import Inventory, Item, Category, ItemReview, Order, OrderItem, Tag, ItemVariation, ItemVariantValue
 # Register your models here.
 
 admin.site.register(Inventory)
@@ -10,3 +10,4 @@ admin.site.register(Order)
 admin.site.register(OrderItem)
 admin.site.register(Tag)
 admin.site.register(ItemVariation)
+admin.site.register(ItemVariantValue)

@@ -7,8 +7,9 @@ from django.contrib.auth import authenticate, login
 from nanoid import generate
 from Api import relay
 from Common.tools import ImageHandler
+from Inventory.models import Item, ItemVariantValue
 from User.Utils.tools import generate_otp
-from User.types import BaseUpdateProfileInput, CustomerInput
+from User.types import BaseUpdateProfileInput, CustomerInput, SimpliFiedVariants, SimpliFiedVariantsValues
 from .models import EmailVerifications, User, Cart, Address, CartItem, Wishlist
 
 class UserObject(DjangoObjectType):
@@ -43,24 +44,52 @@ class AddressObject(DjangoObjectType):
 
 
 class CartItemObject(DjangoObjectType):
+    variants_obj = graphene.List(SimpliFiedVariants)
     class Meta:
         model = CartItem
         fields = '__all__'
         interfaces = (relay.Node, )
         use_connection = True
 
+    def resolve_variants_obj(self, info):
+        # Get all variant values for this cart item
+        variant_values = self.variants.all().select_related('variant')
+
+        # Group by variant (variation)
+        variants_map = {}
+        for variant_value in variant_values:
+            variation = variant_value.variant
+            if variation.id not in variants_map:
+                variants_map[variation.id] = {
+                    'id': variation.id,
+                    'name': variation.name,
+                    'values': []
+                }
+            variants_map[variation.id]['values'].append({
+                'id': variant_value.id,
+                'value': variant_value.value
+            })
+
+        # Convert to list of SimpliFiedVariants objects
+        return [
+            SimpliFiedVariants(
+                id=variant_data['id'],
+                name=variant_data['name'],
+                values=[
+                    SimpliFiedVariantsValues(id=value['id'], value=value['value'])
+                    for value in variant_data['values']
+                ]
+            )
+            for variant_data in variants_map.values()
+        ]
 
 class CartObject(DjangoObjectType):
-    count = graphene.Int()
 
     class Meta:
         model = Cart
         fields = '__all__'
         interfaces = (relay.Node, )
         use_connection = True
-
-    def resolve_count(self, info):
-        return self.items.count()
 
     
 class WishlistObject(DjangoObjectType):
@@ -253,55 +282,97 @@ class UpdateUserProfile(graphene.Mutation):
         
         user.save()
         return UpdateUserProfile(profile=user, success=True, message="Profile updated successfully")
+    
+class CartActionEnum(graphene.Enum):
+    ADD = 'add'
+    REMOVE = 'remove'
+    INCREASE = 'increase'
+    DECREASE = 'decrease'
 
-
-class AddToCart(graphene.Mutation):
-    class Input:
-        item_id = graphene.ID(required=True)
-        quantity = graphene.Int(required=True)
+class CartManageMutation(graphene.Mutation):
+    class Arguments:
+        item_key = graphene.String(required=True)
+        action = graphene.Argument(CartActionEnum, required=True)
+        quantity = graphene.Int(required=False, default_value=1)
+        variants = graphene.List(graphene.String, required=False)
     
     success = graphene.Boolean()
     message = graphene.String()
     cart = graphene.Field(CartObject)
 
     @classmethod
-    def mutate(cls, root, info, item_id, quantity):
+    def mutate(cls, root, info, item_key, action: CartActionEnum, quantity=1, variants=None):
         user = info.context.user
         if user.is_anonymous:
-            return AddToCart(success=False, message="User is not authenticated")
-        cart = user.cart
-        if not cart:
-            cart = Cart.objects.create(user=user)
-        item = CartItem.objects.filter(cart=cart, item_id=item_id).first()
-        if item:
-            item.quantity += quantity
-            item.save()
-        else:
-            item = CartItem.objects.create(cart=cart, item_id=item_id, quantity=quantity)
-        return AddToCart(success=True, message="Item added to cart", cart=cart)
-    
-class RemoveFromCart(graphene.Mutation):
-    class Input:
-        item_id = graphene.ID(required=True)
-    
-    success = graphene.Boolean()
-    message = graphene.String()
-    cart = graphene.Field(CartObject)
+            return cls(success=False, message="User is not authenticated")
 
-    @classmethod
-    def mutate(cls, root, info, item_id):
-        user = info.context.user
-        if user.is_anonymous:
-            return RemoveFromCart(success=False, message="User is not authenticated")
-        cart = user.cart
-        if not cart:
-            return RemoveFromCart(success=False, message="Cart is empty")
-        item = CartItem.objects.filter(cart=cart, item_id=item_id).first()
-        if not item:
-            return RemoveFromCart(success=False, message="Item not found in cart")
-        item.delete()
-        return RemoveFromCart(success=True, message="Item removed from cart", cart=cart)
-    
+        try:
+            _variants = set()
+            if variants:
+                for variant in variants:
+                    try:
+                        v = ItemVariantValue.objects.get(pk=variant)
+                        _variants.add(v)
+                    except ItemVariantValue.DoesNotExist:
+                        raise 'Product Variant not exists.'
+
+            cart, created = Cart.objects.get_or_create(user=user)
+            item = Item.objects.get(key=item_key, itemvariantvalue__in=_variants) if _variants else Item.objects.get(key=item_key)
+            if not item:
+                raise 'Product not exists'
+            cart_item = CartItem.objects.filter(cart=cart, item=item, variants__in=_variants).distinct().first() if _variants else CartItem.objects.filter(cart=cart, item=item).first()
+
+            if action.value in [CartActionEnum.ADD.value, CartActionEnum.INCREASE.value]:
+                if quantity <= 0:
+                    return cls(success=False, message="Quantity must be greater than 0")
+                
+                if cart_item:
+                    cart_item.quantity += quantity
+                    cart_item.save()
+                else:
+                    if action.value == CartActionEnum.INCREASE.value:
+                        return cls(success=False, message="Item not found in cart")
+                    cart_item = CartItem.objects.create(
+                        cart=cart,
+                        item=item,
+                        quantity=quantity,
+                    )
+                    if _variants:
+                        cart_item.variants.set(_variants)
+                return cls(
+                    success=True,
+                    message=f"{'Added' if action.value == CartActionEnum.ADD.value else 'Increased'} {quantity} item(s)",
+                    cart=cart
+                )
+
+            elif action.value == CartActionEnum.REMOVE.value:
+                if not cart_item:
+                    return cls(success=False, message="Item not found in cart")
+                cart_item.delete()
+                return cls(success=True, message="Item removed from cart", cart=cart)
+
+            elif action.value == CartActionEnum.DECREASE.value:
+                if not cart_item:
+                    return cls(success=False, message="Item not found in cart")
+                
+                if cart_item.quantity <= quantity:
+                    cart_item.delete()
+                    return cls(success=True, message="Item removed from cart", cart=cart)
+                
+                cart_item.quantity -= quantity
+                cart_item.save()
+                return cls(
+                    success=True,
+                    message=f"Decreased quantity by {quantity}",
+                    cart=cart
+                )
+
+        except Cart.DoesNotExist:
+            return cls(success=False, message="Cart not found")
+        except Exception as e:
+            return cls(success=False, message=str(e))
+
+
 class AddToWishlist(graphene.Mutation):
     class Input:
         item_id = graphene.ID(required=True)
@@ -346,6 +417,11 @@ class RemoveFromWishlist(graphene.Mutation):
         return RemoveFromWishlist(success=True, message="Item removed from wishlist", wishlist=wishlist)
 
 
+class AddressTypeInputEnum(graphene.InputObjectType):
+    HOME = 'Home'
+    OFFICE = 'Office'
+    OTHER = 'Other'
+
 class AddressInput(graphene.InputObjectType):
     line1 = graphene.String(required=True)
     line2 = graphene.String()
@@ -356,6 +432,8 @@ class AddressInput(graphene.InputObjectType):
     phone = graphene.String(required=True)
     name = graphene.String(required=True)
     is_default = graphene.Boolean()
+    type = graphene.Argument(AddressTypeInputEnum)
+    is_billing = graphene.Boolean()
 
 class AddressMutation(graphene.Mutation):
     class Arguments:
@@ -369,7 +447,7 @@ class AddressMutation(graphene.Mutation):
     def mutate(cls, root, info, input: AddressInput):
         user = info.context.user
         if user.is_anonymous:
-            return AddressMutation(success=False, message="User is not authenticated")
+            return cls(success=False, message="User is not authenticated")
         address = Address(user=user)
         address.address_line_1 = input.line1
         address.address_line_2 = input.line2
@@ -380,8 +458,10 @@ class AddressMutation(graphene.Mutation):
         address.phone = input.phone
         address.is_default = input.is_default
         address.name = input.name
+        address.type = input.type.value or 'home'
+        address.is_billing = input.is_billing or False
         address.save()
-        return AddressMutation(success=True, message="Address added", address=address)
+        return cls(success=True, message="Address added", address=address)
     
 class UpdateAddressMutation(graphene.Mutation):
     class Arguments:
@@ -396,20 +476,22 @@ class UpdateAddressMutation(graphene.Mutation):
     def mutate(cls, root, info, input: AddressInput, address_id):
         user = info.context.user
         if user.is_anonymous:
-            return UpdateAddressMutation(success=False, message="User is not authenticated")
+            return cls(success=False, message="User is not authenticated")
         address = Address.objects.filter(user=user, id=address_id).first()
         if not address:
-            return UpdateAddressMutation(success=False, message="Address not found")
-        address.address_line_1 = input.line1
-        address.address_line_2 = input.line2
-        address.city = input.city
-        address.state = input.state
-        address.country = input.country
-        address.zip_code = input.postal_code
-        address.phone = input.phone
-        address.name = input.name
+            return cls(success=False, message="Address not found")
+        address.address_line_1 = input.line1 or address.address_line_1
+        address.address_line_2 = input.line2 or address.address_line_2
+        address.city = input.city or address.city
+        address.state = input.state or address.state
+        address.country = input.country or address.country
+        address.zip_code = input.postal_code or address.zip_code
+        address.phone = input.phone or address.phone
+        address.name = input.name or address.name
+        address.type = input.type.value or address.type
+        address.is_billing = input.is_billing or address.is_billing
         address.save()
-        return UpdateAddressMutation(success=True, message="Address updated", address=address)
+        return cls(success=True, message="Address updated", address=address)
 
 
 class Query(graphene.ObjectType):
@@ -448,7 +530,6 @@ class Mutation(graphene.ObjectType):
     add_address = AddressMutation.Field()
     update_address = UpdateAddressMutation.Field()
 
-    add_to_cart = AddToCart.Field()
-    remove_from_cart = RemoveFromCart.Field()
+    manage_cart = CartManageMutation.Field() 
     add_to_wishlist = AddToWishlist.Field()
     remove_from_wishlist = RemoveFromWishlist.Field()

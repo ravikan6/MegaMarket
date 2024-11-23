@@ -135,7 +135,7 @@ class Item(models.Model):
         super().save(*args, **kwargs)
     
     def __str__(self):
-        return self.name
+        return f'{self.name} by {self.vendor} ({self.category.name})'
 
     class Meta:
         db_table = 'item'
@@ -162,8 +162,7 @@ class ItemVariation(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self):
-
-        return self.item.name
+        return f'{self.item.name} - {self.name}'
     
     class Meta:
         db_table = 'item_variation'
@@ -188,7 +187,7 @@ class ItemVariantValue(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return self.value
+        return f'{self.item.name} - {self.variant.name} - {self.value}'
     
     class Meta:
         db_table = 'item_variant_value'
@@ -212,6 +211,8 @@ class Category(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self):
+        if self.parent:
+            return f'{self.parent.name} - {self.name}'
         return self.name
     
     class Meta:
@@ -256,7 +257,7 @@ class ItemReview(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return self.name
+        return f'{self.item.name} - {self.user.get_full_name()}'
     
     class Meta:
         db_table = 'item_review'
@@ -304,8 +305,8 @@ class Order(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.pk:
-            _order_id = generate(alphabet='0123456789', size=13)
-            self.order_id = f"OD{_order_id}"
+            _order_id = generate(alphabet='0123456789', size=12)
+            self.order_id = f"OD-{_order_id}"
             self.key = generate(size=40)
         super().save(*args, **kwargs)
 
@@ -335,3 +336,49 @@ class OrderItem(models.Model):
         db_table = 'order_item'
         verbose_name = 'Order Item'
         verbose_name_plural = 'Order Items'
+
+
+class PipelineItem(models.Model):
+    id = models.CharField(max_length=100, unique=True, editable=False, primary_key=True)
+    item = models.ForeignKey('Item', on_delete=models.CASCADE)
+    quantity = models.PositiveIntegerField(default=1)
+    variants = models.ManyToManyField('ItemVariantValue')
+    discount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        if not self.pk:
+            self.id = generate(size=28)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f'{self.quantity} x {self.item.name} with {self.variants.count()} variants'
+    
+    class Meta:
+        db_table = 'pipeline_item'
+        verbose_name = 'Pipeline Item'
+        verbose_name_plural = 'Pipeline Items'
+
+
+class CheckoutPipeline(models.Model):
+    id = models.CharField(max_length=100, unique=True, editable=False, primary_key=True)
+    user = models.ForeignKey('User.User', on_delete=models.CASCADE)
+    items = models.ManyToManyField('PipelineItem')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    promotions = models.JSONField(null=True, blank=True)
+    order_note = models.TextField(null=True, blank=True)
+
+    def save(self, *args, **kwargs):
+        if not self.pk:
+            self.id = generate(size=28)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f'Checkout Pipeline for {self.user.get_full_name()}'
+    
+    class Meta:
+        db_table = 'checkout_pipeline'
+        verbose_name = 'Checkout Pipeline'
+        verbose_name_plural = 'Checkout Pipelines'

@@ -19,3 +19,12 @@ class BaseUpdateProfileInput(graphene.InputObjectType):
     sex = graphene.String()
     dob = graphene.Date()
     image = ImageInput()
+
+class SimpliFiedVariantsValues(graphene.ObjectType):
+    id = graphene.ID()
+    value = graphene.String()
+
+class SimpliFiedVariants(graphene.ObjectType):
+    id = graphene.ID()
+    name = graphene.String()
+    values = graphene.List(SimpliFiedVariantsValues)

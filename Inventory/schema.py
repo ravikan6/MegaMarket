@@ -11,8 +11,9 @@ from Common.exceptions import InvalidImageException, InvalidModelIdException, Un
 from Common.models import Image, ItemMedia
 from Common.tools import ImageHandler, MediaHandler
 from Common.types import ImageInput, MediaInput
-from Inventory.models import Item, Category, Order, OrderItem, Inventory, ItemVariation, ItemReview, Tag, ItemVariantValue
+from Inventory.models import Item, Category, Order, OrderItem, Inventory, ItemVariation, ItemReview, Tag, ItemVariantValue, PipelineItem, CheckoutPipeline
 from Inventory.types import CategoryInput, CategoryUpdateInput, CreateOrderInput, CreateOrderRes, ItemExtraFieldObject, ItemSeoObject, ItemVariantInfoObject, NewItemInput, PaymentDetailsObject, ShippingInfoObject, TextJsonFieldData, TextJsonFieldObject, UpdateItemInput, VerifyOrderInput
+from User.types import SimpliFiedVariants, SimpliFiedVariantsValues
 from Vendor.models import Vendor
 
 class ItemObject(DjangoObjectType):
@@ -21,9 +22,15 @@ class ItemObject(DjangoObjectType):
     extra_fields = graphene.List(ItemExtraFieldObject)
     seo = graphene.Field(ItemSeoObject)
     shipping = graphene.Field(ShippingInfoObject)
+
     desc_json = graphene.JSONString()
     seo_json = graphene.JSONString()
     extra_fields_json = graphene.JSONString()
+
+    variants_obj = graphene.List(SimpliFiedVariants)
+
+    in_cart = graphene.Boolean()
+    in_wishlist = graphene.Boolean()
 
     class Meta:
         model = Item
@@ -84,6 +91,50 @@ class ItemObject(DjangoObjectType):
     
     def resolve_seo_json(self, info):
         return self.seo
+    
+    def resolve_variants_obj(self, info):
+        # Get all variations for this item with their values
+        variations = self.variations.all().prefetch_related('values')
+
+        # Format into SimplifiedVariants objects
+        variants = []
+        for variation in variations:
+            variant_values = [
+                SimpliFiedVariantsValues(
+                    id=value.id,
+                    value=value.value
+                ) for value in variation.values.all()
+            ]
+
+            variants.append(
+                SimpliFiedVariants(
+                    id=variation.id,
+                    name=variation.name,
+                    values=variant_values
+                )
+            )
+
+        return variants
+    
+    def resolve_in_cart(self, info):
+        user = info.context.user
+        if user.is_authenticated:
+            try:
+                c = user.cart.items.filter(item=self).first()
+                return True if c else False
+            except:
+                return False
+        else: return False
+
+    def resolve_in_wishlist(self, info):
+        user = info.context.user
+        if user.is_authenticated:
+            try:
+                w = user.wishlist.items.filter(item=self).first()
+                return True if w else False
+            except:
+                return False
+        else: return False
 
 class CategoryObject(DjangoObjectType):
     class Meta:
@@ -148,19 +199,31 @@ class ItemVariationObject(DjangoObjectType):
     class Meta:
         model = ItemVariation
         fields = '__all__'
-        interfaces= (relay.Node, )
-        use_connection = True
+        # interfaces= (relay.Node, )
+        # use_connection = True
 
 class ItemVariantValueObject(DjangoObjectType):
+    in_cart = graphene.Boolean()
+
     class Meta:
         model = ItemVariantValue
         fields = '__all__'
-        filter_fields = {
-            'variant': ['exact'],
-            'value': ['exact', 'icontains', 'istartswith'],
-        }
-        interfaces= (relay.Node, )
-        use_connection = True
+        # filter_fields = {
+        #     'variant': ['exact'],
+        #     'value': ['exact', 'icontains', 'istartswith'],
+        # }
+        # interfaces= (relay.Node, )
+        # use_connection = True
+    
+    def resolve_in_cart(self, info):
+        user = info.context.user
+        if user.is_authenticated:
+            try:
+                c = user.cart.items.filter(item=self.item, variants__in=[self]).first()
+                return True if c else False
+            except:
+                return False
+        else: return False
 
 class ItemReviewObject(DjangoObjectType):
     
@@ -185,6 +248,23 @@ class TagObject(DjangoObjectType):
         }
         interfaces= (relay.Node, )
         use_connection = True
+
+class CheckoutPipelineObject(DjangoObjectType):
+    class Meta:
+        model = CheckoutPipeline
+        fields = '__all__'
+        filter_fields = {
+            'user': ['exact'],   
+            'id': ['exact']         
+        }
+        interfaces= (relay.Node, )
+        use_connection = True
+ 
+class CheckoutPipelineItemObject(DjangoObjectType):
+    class Meta:
+        model = PipelineItem
+        fields = '__all__'
+
 
 '''********** Mutations **********'''
 
@@ -696,7 +776,8 @@ class Query(graphene.ObjectType):
     inventories = DjangoFilterConnectionField(InventoryObject)
     item_reviews = DjangoFilterConnectionField(ItemReviewObject)
     tags = DjangoFilterConnectionField(TagObject)
-
+    checkout_pipelines = DjangoFilterConnectionField(CheckoutPipelineObject)
+    
     item = graphene.Field(ItemObject, key=graphene.String())
     category = relay.Node.Field(CategoryObject)
     order = relay.Node.Field(OrderObject)
@@ -704,6 +785,7 @@ class Query(graphene.ObjectType):
     inventory = relay.Node.Field(InventoryObject)
     item_review = relay.Node.Field(ItemReviewObject)
     tag = relay.Node.Field(TagObject)
+    checkout_pipeline = relay.Node.Field(CheckoutPipelineObject)
 
     def resolve_item(self, info, key):
         try: return Item.objects.get(key=key)

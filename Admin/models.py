@@ -118,7 +118,11 @@ class RBoxImage(models.Model):
         super(RBoxImage, self).save(*args, **kwargs)
 
     def __str__(self):
+<<<<<<< HEAD
         return self.id
+=======
+        return self.title
+>>>>>>> 1ea1b6c (Reinitialize repository and commit existing changes)
     
     class Meta:
         db_table = 'rbox_image'

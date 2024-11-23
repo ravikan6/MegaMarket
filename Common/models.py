@@ -30,7 +30,11 @@ class Image(models.Model):
         return self
     
     def get_url(self):
+<<<<<<< HEAD
         return self.url
+=======
+        return f"{self.alt} , {self.url}"
+>>>>>>> 1ea1b6c (Reinitialize repository and commit existing changes)
     
     def get_https_url(self):
         from Common.tools import ImageUrlBuilder

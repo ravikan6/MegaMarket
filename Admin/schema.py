@@ -30,6 +30,7 @@ class RBoxImageObject(DjangoObjectType):
     class Meta:
         model = RBoxImage
         fields = '__all__'
+<<<<<<< HEAD
         filter_fields = {
             'image': ['exact'],
             'created_at': ['exact', 'icontains'],
@@ -40,6 +41,12 @@ class RBoxImageObject(DjangoObjectType):
 
 
 class RBoxObject(DjangoObjectType):
+=======
+
+
+class RBoxObject(DjangoObjectType):
+
+>>>>>>> 1ea1b6c (Reinitialize repository and commit existing changes)
     class Meta:
         model = RBox
         fields = '__all__'

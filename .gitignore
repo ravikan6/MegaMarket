@@ -33,4 +33,16 @@ venv.bak/
 .idea/
 
 # If you are using Django with VSCode
+<<<<<<< HEAD
 .vscode/
+=======
+.vscode/
+
+.htaccess
+_config.py
+passenger_wsgi.py
+start.sh
+supervisord.conf
+supervisord.pid
+tmp/
+>>>>>>> 1ea1b6c (Reinitialize repository and commit existing changes)

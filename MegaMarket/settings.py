@@ -198,9 +198,15 @@ USE_I18N = True
 
 USE_TZ = True
 
+<<<<<<< HEAD
 CSRF_COOKIE_SAMESITE = 'Lax'
 CSRF_COOKIE_SECURE = True
 SESSION_COOKIE_SAMESITE = 'Lax'
+=======
+CSRF_COOKIE_SAMESITE = 'None'
+CSRF_COOKIE_SECURE = True
+SESSION_COOKIE_SAMESITE = 'None'
+>>>>>>> 1ea1b6c (Reinitialize repository and commit existing changes)
 SESSION_COOKIE_SECURE = True
 SESSION_COOKIE_HTTP_ONLY = True
 

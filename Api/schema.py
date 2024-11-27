@@ -14,6 +14,7 @@ class ValidateUPIResponse(graphene.ObjectType):
     vpa = graphene.String()
     res = graphene.String()
 
+
 class ValidateUPIMutation(graphene.Mutation):
     class Arguments:
         upi = graphene.String(required=True)
@@ -25,10 +26,11 @@ class ValidateUPIMutation(graphene.Mutation):
             return None
         api_key = os.environ.get('RAZORPAY_API_KEY')
         api_secret = os.environ.get('RAZORPAY_API_SECRET')
-        
+
         if not api_key or not api_secret:
-            raise ValueError("RAZORPAY_API_KEY and RAZORPAY_API_SECRET must be set in environment variables")
-        
+            raise ValueError(
+                "RAZORPAY_API_KEY and RAZORPAY_API_SECRET must be set in environment variables")
+
         url = "https://api.razorpay.com/v1/payments/validate/vpa"
         headers = {
             "Content-Type": "application/json"
@@ -36,24 +38,28 @@ class ValidateUPIMutation(graphene.Mutation):
         data = {
             "vpa": upi
         }
-        
-        response = requests.post(url, auth=(api_key, api_secret), headers=headers, json=data)
+
+        response = requests.post(url, auth=(
+            api_key, api_secret), headers=headers, json=data)
         response_data = response.json()
-        
+
         success = response_data.get('success', False)
         customer_name = response_data.get('customer_name', '')
         vpa = response_data.get('vpa', '')
 
         return ValidateUPIResponse(success=success, customer_name=customer_name, vpa=vpa, res=str(response_data))
 
+
 class Query(UserQuery, CommonQuery, InventoryQuery, AdminQuery, VendorQuery):
     greet = graphene.String(name=graphene.String(default_value="stranger"))
-    
-    def resolve_greet(self, info, name = None):
+
+    def resolve_greet(self, info, name=None):
         return f'Hello {name}!'
+
 
 class Mutation(UserMutation, CommonMutation, InventoryMutation, AdminMutation, VendorMutation):
     validate_upi = ValidateUPIMutation.Field()
     pass
+
 
 schema = graphene.Schema(query=Query, mutation=Mutation)

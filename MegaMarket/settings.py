@@ -23,32 +23,22 @@ load_dotenv()
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 cloudinary.config(
-    cloud_name = os.environ.get('CLOUDINARY_CLOUD_NAME'),
-    api_key = os.environ.get('CLOUDINARY_API_KEY'),
-    api_secret = os.environ.get('CLOUDINARY_API_SECRET'),
-    secure = True
+    cloud_name=os.environ.get('CLOUDINARY_CLOUD_NAME'),
+    api_key=os.environ.get('CLOUDINARY_API_KEY'),
+    api_secret=os.environ.get('CLOUDINARY_API_SECRET'),
+    secure=True
 )
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-^fvy-zxg)n(8gmm4!rg67tqk#op^s#vm_l2%(0zni$ympc9a47'
+SECRET_KEY = os.environ.get('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ.get('DEBUG', 'False').lower() == 'true'      # True
 
-ALLOWED_HOSTS = [
-    'merabestie.com', 
-    'www.merabestie.com', 
-    'portal.merabestie.com', 
-    'www.portal.merabestie.com',
-    'localhost',
-    '52.66.101.190',
-    '3.109.102.144',
-    '3.111.60.173',
-    '52.66.25.127'
-]
+ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '').split(',')
 
 # Application definition
 
@@ -199,11 +189,15 @@ USE_I18N = True
 USE_TZ = True
 
 
-CSRF_COOKIE_SAMESITE = 'None'
+CSRF_COOKIE_SAMESITE = 'Lax'
 CSRF_COOKIE_SECURE = True
-SESSION_COOKIE_SAMESITE = 'None'
+CSRF_COOKIE_HTTP_ONLY = True
+CSRF_COOKIE_DOMAIN = os.environ.get('CSRF_COOKIE_DOMAIN', None)
+SESSION_COOKIE_SAMESITE = 'Lax'
 SESSION_COOKIE_SECURE = True
 SESSION_COOKIE_HTTP_ONLY = True
+SESSION_COOKIE_DOMAIN = os.environ.get('SESSION_COOKIE_DOMAIN', None)
+SESSION_COOKIE_AGE = 60 * 60 * 24 * 30
 
 CORS_ALLOW_CREDENTIALS = True
 

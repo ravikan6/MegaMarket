@@ -2,25 +2,30 @@ import graphene
 
 from Common.types import ImageInput
 
+
 class ItemStatusEnum(graphene.Enum):
     DRAFT = "draft"
     PUBLISHED = "published"
     UNPUBLISHED = "unpublished"
+
 
 class FieldTypeEnum(graphene.Enum):
     PARAGRAPH = "paragraph"
     LIST = "list"
     DICT = "dict"
 
+
 class ItemVariantInfoObject(graphene.ObjectType):
     name = graphene.String()
     value = graphene.String()
     available = graphene.Boolean()
 
+
 class ItemSeoObject(graphene.ObjectType):
     title = graphene.String()
     description = graphene.String()
     keywords = graphene.List(graphene.String)
+
 
 class ItemSeoInput(graphene.InputObjectType):
     title = graphene.String()
@@ -28,23 +33,28 @@ class ItemSeoInput(graphene.InputObjectType):
     slug = graphene.String()
     keywords = graphene.List(graphene.String)
 
+
 class ParagraphFieldData(graphene.ObjectType):
     paragraph = graphene.String()
 
+
 class ListFieldData(graphene.ObjectType):
     list = graphene.List(graphene.String)
+
 
 class DictFieldDataDict(graphene.ObjectType):
     key = graphene.String()
     value = graphene.String()
 
+
 class DictFieldData(graphene.ObjectType):
     dict = graphene.List(DictFieldDataDict)
+
 
 class TextJsonFieldData(graphene.Union):
 
     class Meta:
-        types = (ParagraphFieldData, ListFieldData, DictFieldData )
+        types = (ParagraphFieldData, ListFieldData, DictFieldData)
 
     @classmethod
     def resolve_type(cls, instance, info):
@@ -57,10 +67,12 @@ class TextJsonFieldData(graphene.Union):
             return DictFieldData
         return None
 
+
 class TextJsonFieldObject(graphene.ObjectType):
     title = graphene.String()
     type = graphene.String()
-    data = graphene.Field(TextJsonFieldData) 
+    data = graphene.Field(TextJsonFieldData)
+
 
 class ShippingInfoObject(graphene.ObjectType):
     is_physical = graphene.Boolean()
@@ -70,28 +82,34 @@ class ShippingInfoObject(graphene.ObjectType):
     def resolve_weight(self, info):
         if self['weight']:
             return float(self['weight'])
-        else: return None
+        else:
+            return None
+
 
 class ItemExtraFieldData(graphene.InputObjectType):
     name = graphene.String()
     value = graphene.String()
 
+
 class ItemExtraFieldDataObject(graphene.ObjectType):
     name = graphene.String()
     value = graphene.String()
+
 
 class ItemExtraFieldObject(graphene.ObjectType):
     title = graphene.String()
     type = graphene.String()
     data = graphene.List(ItemExtraFieldDataObject)
 
+
 class ItemExtraField(graphene.InputObjectType):
     title = graphene.String(required=True)
     type = graphene.String(required=True)
     data = graphene.List(ItemExtraFieldData, required=True)
 
+
 class NewItemInput(graphene.InputObjectType):
-    vendor =  graphene.String(required=True)
+    vendor = graphene.String(required=True)
 
 
 class UpdateItemInput(graphene.InputObjectType):
@@ -114,12 +132,14 @@ class UpdateItemInput(graphene.InputObjectType):
     cost = graphene.Float()
     seo = graphene.JSONString()
 
+
 class CategoryInput(graphene.InputObjectType):
     name = graphene.String(required=True)
     description = graphene.String()
     image = ImageInput()
     parent = graphene.String()
     priority = graphene.Int()
+
 
 class CategoryUpdateInput(graphene.InputObjectType):
     name = graphene.String()
@@ -147,6 +167,7 @@ class CreateOrderInput(graphene.InputObjectType):
     billing_address = graphene.String(required=True)
     payment_method = graphene.String(required=True)
 
+
 class CreateOrderRes(graphene.ObjectType):
     payment_session_id = graphene.String(required=True)
     order_id = graphene.String(required=True)
@@ -155,6 +176,7 @@ class CreateOrderRes(graphene.ObjectType):
     method = graphene.String()
     expiry_time = graphene.String()
 
+
 class VerifyOrderInput(graphene.InputObjectType):
     order_id = graphene.String(required=True)
     token = graphene.String(required=True)
@@ -162,6 +184,7 @@ class VerifyOrderInput(graphene.InputObjectType):
 
 class PaymentDetailsMetaObject(graphene.ObjectType):
     return_url = graphene.String()
+
 
 class PaymentDetailsObject(graphene.ObjectType):
     order_id = graphene.String()
@@ -176,3 +199,71 @@ class PaymentDetailsObject(graphene.ObjectType):
     order_splits = graphene.List(graphene.String)
     order_meta = graphene.Field(PaymentDetailsMetaObject)
     order_tags = graphene.String()
+
+
+class CheckoutPipelineItemInput(graphene.InputObjectType):
+    item = graphene.String(required=True)
+    quantity = graphene.Int(required=True)
+    discount = graphene.Float()
+    variants = graphene.List(graphene.String)
+
+
+class CheckoutPipelineInput(graphene.InputObjectType):
+    items = graphene.List(CheckoutPipelineItemInput, required=True)
+    promotions = graphene.JSONString()
+    order_note = graphene.String()
+
+
+class CheckoutPipelineItemUpdateActionEnum(graphene.Enum):
+    ADD = "add"
+    REMOVE = "remove"
+    UPDATE = "update"
+
+
+class CheckoutPipelineItemUpdateInput(graphene.InputObjectType):
+    item = graphene.String(required=True)
+    quantity = graphene.Int(required=True)
+    discount = graphene.Float()
+    action = graphene.Field(
+        CheckoutPipelineItemUpdateActionEnum, required=True)
+
+
+class CheckoutPipelineUpdateInput(graphene.InputObjectType):
+    items = graphene.List(CheckoutPipelineItemUpdateInput)
+    promotions = graphene.JSONString()
+    order_note = graphene.String()
+
+
+class PaymentMethodEnum(graphene.Enum):
+    COD = "cod"
+    RAZORPAY = "razorpay"
+    CASHFREE = "cashfree"
+    PAYPAL = "paypal"
+    UPI = "upi"
+    STRIPE = "stripe"
+    PAYTM = "paytm"
+    PAYU = "payu"
+    GOOGLE_PAY = "google_pay"
+    PHONEPE = "phonepe"
+    BHIM = "bhim"
+    AMAZON_PAY = "amazon_pay"
+    APPLE_PAY = "apple_pay"
+    SAMSUNG_PAY = "samsung_pay"
+    BHARAT_QR = "bharat_qr"
+    QR_CODE = "qr_code"
+    NET_BANKING = "net_banking"
+    DEBIT_CARD = "debit_card"
+    CREDIT_CARD = "credit_card"
+    EMI = "emi"
+    WALLET = "wallet"
+
+
+class MakeOrderInput(graphene.InputObjectType):
+    pipeline_id = graphene.String(required=True)
+    total = graphene.Float(required=True)
+    shipping = graphene.Float()
+    tax = graphene.Float()
+    discount = graphene.Float()
+    shipping_address = graphene.String(required=True)
+    billing_address = graphene.String(required=True)
+    payment_method = graphene.Field(PaymentMethodEnum, required=True)

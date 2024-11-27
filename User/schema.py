@@ -403,8 +403,8 @@ class CartManageMutation(graphene.Mutation):
                         cart_item.variants.set(_variants)
                 return cls(
                     success=True,
-                    message=f"{'Added' if action.value == CartActionEnum.ADD.value else 'Increased'} {
-                        quantity} item(s)",
+                    message=f"""{'Added' if action.value == CartActionEnum.ADD.value else 'Increased'}
+                    {quantity} item(s)""",
                     cart=cart
                 )
 

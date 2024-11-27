@@ -19,6 +19,7 @@ x_api_version = "2023-08-01"
 
 class Payments:
     def __init__(self, method='other'):
+        self.method = method
         self.cashfree = Cashfree()
         self.order_meta = OrderMeta()
 
@@ -49,8 +50,7 @@ class Payments:
 
             print(token)
 
-            self.order_meta.return_url = f'{return_url}?order_id={
-                order.order_id}&token={token}'
+            self.order_meta.return_url = f'{return_url}?order_id={order.order_id}&token={token}'
             self.order_meta.notify_url = os.environ.get('CASHFREE_NOTIFY_URL')
             print(self.order_meta.notify_url)
             self.order_meta.payment_methods = "cc,dc,ccc,nb,upi"
@@ -111,6 +111,5 @@ class Payments:
             return None
 
 
-client = razorpay.Client(auth=(os.environ.get(
-    'RAZORPAY_API_KEY'), os.environ.get('RAZORPAY_API_SECRET')))
+client = razorpay.Client(auth=(os.environ.get('RAZORPAY_API_KEY'), os.environ.get('RAZORPAY_API_SECRET')))
 client.set_app_details({"title": "MeraBestie - Django", "version": "1.0.0"})

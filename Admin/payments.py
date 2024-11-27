@@ -63,8 +63,7 @@ class Payments:
             create_order_request.order_id = order.order_id
             create_order_request.order_meta = self.order_meta
             create_order_request.order_expiry_time = expire_time.isoformat()
-            create_order_request.order_note = f'Order for {
-                customer.get_full_name()} with order ID {order.order_id}'
+            create_order_request.order_note = f'Order for {customer.get_full_name()} with order ID {order.order_id}'
 
             response = self.cashfree.PGCreateOrder(
                 x_api_version, create_order_request)

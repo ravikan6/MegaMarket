@@ -2,11 +2,13 @@ import graphene
 
 from Api import relay
 from Common.tools import ImageHandler
+from Inventory.schema import OrderObject
 from User.models import User
 from Vendor.types import NewVendorInput, UpdateVendorInput
 from .models import Vendor
 from graphene_django import DjangoObjectType
 from graphene_django.filter import DjangoFilterConnectionField
+from Inventory.models import Order
 
 class VendorObject(DjangoObjectType):
     
@@ -19,7 +21,24 @@ class VendorObject(DjangoObjectType):
         interfaces = (relay.Node, )
         use_connection = True
 
+class VendorOrderObject(DjangoObjectType):
+    class Meta:
+        model = Order
+        fields = '__all__'
+        filter_fields = {
+            'status': ['exact', 'icontains'],
+        }
+        interfaces = (relay.Node, )
+        use_connection = True
 
+    @classmethod
+    def get_queryset(cls, queryset, info):  
+        user = info.context.user
+        if not user.is_authenticated or not user.type == 'vendor':
+            return queryset.none()
+        return queryset.filter(items__item__vendor=user.vendor).distinct()
+    
+    
 class NewVendor(graphene.Mutation):
 
     class Input:
@@ -93,7 +112,8 @@ class UpdateVendor(graphene.Mutation):
 class Query:
     vendor = relay.Node.Field(VendorObject)
     vendors = DjangoFilterConnectionField(VendorObject)
-    
+
+    vendor_orders = DjangoFilterConnectionField(VendorOrderObject)
 
 class Mutation:
     new_vendor = NewVendor.Field()

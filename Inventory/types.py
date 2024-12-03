@@ -1,3 +1,4 @@
+from http import server
 import graphene
 
 from Common.types import ImageInput
@@ -111,11 +112,21 @@ class ItemExtraField(graphene.InputObjectType):
 class NewItemInput(graphene.InputObjectType):
     vendor = graphene.String(required=True)
 
+class ItemSeoInput(graphene.InputObjectType):
+    title = graphene.String()
+    description = graphene.String()
+    slug = graphene.String()
+    keywords = graphene.List(graphene.String)
+
+class ItemShippingInput(graphene.InputObjectType):
+    is_physical = graphene.Boolean()
+    weight = graphene.Float()
+    unit = graphene.String()
 
 class UpdateItemInput(graphene.InputObjectType):
     teaser = graphene.String()
     slug = graphene.String()
-    shipping = graphene.JSONString()
+    shipping = ItemShippingInput()
     tags = graphene.List(graphene.String)
     status = graphene.Field(ItemStatusEnum)
     can_return = graphene.Boolean()
@@ -124,13 +135,13 @@ class UpdateItemInput(graphene.InputObjectType):
     extra_fields = graphene.List(ItemExtraField)
     sku = graphene.String()
     name = graphene.String()
-    description = graphene.JSONString()
+    description = graphene.String()
     price = graphene.Float()
     category = graphene.String()
     tax = graphene.Boolean()
     compare_price = graphene.Float()
     cost = graphene.Float()
-    seo = graphene.JSONString()
+    seo = ItemSeoInput()
 
 
 class CategoryInput(graphene.InputObjectType):
@@ -267,3 +278,10 @@ class MakeOrderInput(graphene.InputObjectType):
     shipping_address = graphene.String(required=True)
     billing_address = graphene.String(required=True)
     payment_method = graphene.Field(PaymentMethodEnum, required=True)
+
+
+class RazoryPayPaymentInput(graphene.InputObjectType):
+    order_id = graphene.String(required=True)
+    payment_id = graphene.String(required=True)
+    signature = graphene.String(required=True)
+    server_order_id = graphene.String(required=True)

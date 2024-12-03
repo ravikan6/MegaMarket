@@ -5,14 +5,14 @@ from graphene_django.filter import DjangoFilterConnectionField
 from graphene_django.types import DjangoObjectType
 
 from Admin.models import Brand
-from Admin.payments import Payments
+from Admin.payments import Payments, RazorpayPayments
 from Api import relay
 from Common.exceptions import InvalidImageException, InvalidModelIdException, UnAuthorizedException
 from Common.models import Image, ItemMedia
 from Common.tools import ImageHandler, MediaHandler
 from Common.types import ImageInput, MediaInput
 from Inventory.models import Item, Category, Order, OrderItem, Inventory, ItemVariation, ItemReview, Tag, ItemVariantValue, PipelineItem, CheckoutPipeline, PromoCode
-from Inventory.types import CategoryInput, CategoryUpdateInput, CheckoutPipelineInput, CheckoutPipelineUpdateInput, CreateOrderInput, CreateOrderRes, ItemExtraFieldObject, ItemSeoObject, ItemVariantInfoObject, MakeOrderInput, NewItemInput, PaymentDetailsObject, ShippingInfoObject, TextJsonFieldData, TextJsonFieldObject, UpdateItemInput, VerifyOrderInput
+from Inventory.types import CategoryInput, CategoryUpdateInput, CheckoutPipelineInput, CheckoutPipelineUpdateInput, CreateOrderInput, CreateOrderRes, ItemExtraFieldObject, ItemSeoObject, ItemVariantInfoObject, MakeOrderInput, NewItemInput, PaymentDetailsObject, RazoryPayPaymentInput, ShippingInfoObject, TextJsonFieldData, TextJsonFieldObject, UpdateItemInput, VerifyOrderInput
 from User.types import SimpliFiedVariants, SimpliFiedVariantsValues
 from Vendor.models import Vendor
 
@@ -44,6 +44,7 @@ class ItemObject(DjangoObjectType):
             'price': ['exact', 'gt', 'gte', 'lt', 'lte'],
             'status': ['exact'],
             'vendor': ['exact'],
+            'vendor__key': ['exact'],
             'brand': ['exact'],
             'key': ['exact'],
             'sku': ['exact'],
@@ -170,11 +171,10 @@ class OrderObject(DjangoObjectType):
 
     def resolve_payment(self, info):
         try:
-            p = Payments().get_info(self.order_id)
+            p = RazorpayPayments().get_info(order_id=self.extra.get('order_id', None))
             return p
         except:
             return None
-
 
 class OrderItemObject(DjangoObjectType):
     class Meta:
@@ -449,8 +449,11 @@ class UpdateItem(graphene.Mutation):
                 item.teaser = input.teaser
             if input.slug:
                 item.slug = input.slug
-            if input.description:
-                item.description = input.description
+            _desc = {
+                "desc": input.description.desc if input.description.desc else item.description.get('desc', None),
+                "info": input.description.info if input.description.info else item.description.get('info', None)
+            }
+            item.description = _desc
             if input.category:
                 try:
                     item.category = Category.objects.get(id=input.category)
@@ -478,9 +481,20 @@ class UpdateItem(graphene.Mutation):
             if input.extra_fields:
                 item.extra_fields = input.extra_fields
             if input.seo:
-                item.seo = input.seo
+                _seo = {
+                    "title": input.seo.title if input.seo.title else item.seo.get('title', None),
+                    "description": input.seo.description if input.seo.description else item.seo.get('description', None),
+                    "slug": input.seo.slug if input.seo.slug else item.seo.get('slug', None),
+                    "keywords": input.seo.keywords if input.seo.keywords else item.seo.get('keywords', None)
+                }
+                item.seo = _seo
             if input.shipping:
-                item.shipping = input.shipping
+                _shipping = {
+                    "is_physical": input.shipping.is_physical if input.shipping.is_physical else item.shipping.get('is_physical', None),
+                    "weight": input.shipping.weight if input.shipping.weight else item.shipping.get('weight', None),
+                    "unit": input.shipping.unit if input.shipping.unit else item.shipping.get('unit', None)
+                }
+                item.shipping = _shipping
             if input.tags:
                 for tag in input.tags:
                     tag, new = Tag.objects.get_or_create(name=tag)
@@ -1051,65 +1065,65 @@ class MakeOrder(graphene.Mutation):
                     quantity=pipeline_item.quantity,
                     price=pipeline_item.item.price,
                     total=(pipeline_item.item.price *
-                           pipeline_item.quantity) - pipeline_item.discount,
+                           pipeline_item.quantity) - (pipeline_item.discount or Decimal(0)),
                 )
                 order_item.save()
                 order.total += order_item.total
                 order.save()
                 order_item.variants.set(pipeline_item.variants.all())
         except Exception as e:
+            print(e)
             order.delete()
             return cls(order=None, success=False, message="An error occurred while creating order items")
 
         try:
             if order and order.order_id:
-                payment = Payments(method=input.payment_method.value.lower(
-                ) or 'other').create_order(user, order)
-                if payment and payment.status_code == 200:
-                    order.extra = payment.raw_data
+                from django.forms.models import model_to_dict
+
+                payment = RazorpayPayments().create_order(user, order)
+                if payment and payment['status'] == 'created':
                     state_data = {
                         'pipeline': pipeline.id,
                         'order': order.id,
                         'address': {
-                            'shipping': order.shipping_address.__dict__,
-                            'billing': order.billing_address.__dict__
+                            'shipping': model_to_dict(order.shipping_address),
+                            'billing': model_to_dict(order.billing_address)
                         },
                         'items': [
                             {
-                                'item': item.item.__dict__,
+                                'item': str(model_to_dict(item.item, fields=['key', 'name', 'price', 'compare_price'])),
                                 'quantity': item.quantity,
-                                'price': item.price,
-                                'total': item.total,
-                                'variants': [variant.__dict__ for variant in item.variants.all()]
+                                'price': str(item.price),
+                                'total': str(item.total),
+                                'variants': [str(model_to_dict(variant)) for variant in item.variants.all()]
                             }
                             for item in order.items.all()
                         ],
-                        'total': order.total,
+                        'total': str(order.total),
                         'payment': {
                             'method': order.payment_method,
-                            'status': payment.data.order_status,
-                            'session_id': payment.data.payment_session_id,
-                            'expiry_time': str(payment.data.order_expiry_time)
+                            'session_id': payment['id'],
                         },
                         'promo': pipeline.promotions,
                     }
                     order.state_data = state_data
                     order.save()
                     res = CreateOrderRes()
-                    res.payment_session_id = payment.data.payment_session_id
+                    res.payment_session_id = payment['id']
                     res.order_id = order.order_id
                     res.amount = float(order.total)
                     res.status = order.status
                     res.method = order.payment_method
-                    res.expiry_time = str(payment.data.order_expiry_time)
+                    res.expiry_time = None
                     return MakeOrder(
                         success=True,
                         message="Order created successfully",
                         order=res
                     )
                 else:
-                    raise Exception('Error creating order with Cashfree.')
+                    raise Exception(f'Error creating order with {input.payment_method}.')
         except Exception as e:
+            print(e)
             order.delete()
             return cls(order=None, success=False, message="An error occurred while creating order")
 
@@ -1148,6 +1162,45 @@ class CheckPromoCode(graphene.Mutation):
             return CheckPromoCode(success=False, message="Minimum order value not met")
 
         return CheckPromoCode(success=True, message="Promo Code is valid", promo=promo)
+    
+
+class AddRazorPayRes(graphene.Mutation):
+    
+    class Arguments:
+        input = RazoryPayPaymentInput(required=True)
+
+    success = graphene.Boolean()
+    message = graphene.String()
+    is_verified = graphene.Boolean()
+    order = graphene.Field(OrderObject)
+    status = graphene.String()
+
+    @classmethod
+    def mutate(cls, root, info, input: RazoryPayPaymentInput):
+        user = info.context.user
+        if not user.is_authenticated:
+            raise UnAuthorizedException()
+        try:
+            order = Order.objects.get(order_id=input.order_id)
+        except Order.DoesNotExist:
+            return cls(success=False, message="Order not found", is_verified=False, status='failed')
+        try:
+            payload = {
+                'razorpay_order_id': input.order_id,
+                'razorpay_payment_id': input.payment_id,
+                'razorpay_signature': input.signature
+            }
+            payment = RazorpayPayments().verify_signature(payload)
+            if payment:
+                order.payment_status = 'paid'
+                order.status = 'confirmed'
+                order.extra = payload
+                order.save()
+                return cls(success=True, message="Payment successful", is_verified=True, order=order, status='paid')
+            else:
+                return cls(success=False, message="Payment failed", is_verified=False, status='failed')
+        except Exception as e:
+            return cls(success=False, message="Payment failed", is_verified=False, status='failed')
 
 
 '''********** Query **********'''
@@ -1214,3 +1267,4 @@ class Mutation(graphene.ObjectType):
     update_checkout_pipeline = UpdateCheckoutPipeline.Field()
     make_order = MakeOrder.Field()
     apply_promo_code = CheckPromoCode.Field()
+    verify_razorpay_res = AddRazorPayRes.Field()

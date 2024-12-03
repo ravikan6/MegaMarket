@@ -438,46 +438,46 @@ class CartManageMutation(graphene.Mutation):
 
 class AddToWishlist(graphene.Mutation):
     class Input:
-        item_id = graphene.ID(required=True)
+        item_key = graphene.String(required=True)
 
     success = graphene.Boolean()
     message = graphene.String()
     wishlist = graphene.Field(WishlistObject)
 
     @classmethod
-    def mutate(cls, root, info, item_id):
+    def mutate(cls, root, info, item_key):
         user = info.context.user
         if user.is_anonymous:
             return AddToWishlist(success=False, message="User is not authenticated")
         wishlist = user.wishlist
         if not wishlist:
             wishlist = Wishlist.objects.create(user=user)
-        item = wishlist.items.filter(id=item_id).first()
+        item = wishlist.items.filter(key=item_key).first()
         if not item:
-            wishlist.items.add(item_id)
+            wishlist.items.add(Item.objects.get(key=item_key))
         return AddToWishlist(success=True, message="Item added to wishlist", wishlist=wishlist)
 
 
 class RemoveFromWishlist(graphene.Mutation):
     class Input:
-        item_id = graphene.ID(required=True)
+        item_key = graphene.String(required=True)
 
     success = graphene.Boolean()
     message = graphene.String()
     wishlist = graphene.Field(WishlistObject)
 
     @classmethod
-    def mutate(cls, root, info, item_id):
+    def mutate(cls, root, info, item_key):
         user = info.context.user
         if user.is_anonymous:
             return RemoveFromWishlist(success=False, message="User is not authenticated")
         wishlist = user.wishlist
         if not wishlist:
             return RemoveFromWishlist(success=False, message="Wishlist is empty")
-        item = wishlist.items.filter(id=item_id).first()
+        item = wishlist.items.filter(key=item_key).first()
         if not item:
             return RemoveFromWishlist(success=False, message="Item not found in wishlist")
-        wishlist.items.remove(item_id)
+        wishlist.items.remove(item)
         return RemoveFromWishlist(success=True, message="Item removed from wishlist", wishlist=wishlist)
 
 

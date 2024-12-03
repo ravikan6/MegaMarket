@@ -111,4 +111,64 @@ class Payments:
 
 
 client = razorpay.Client(auth=(os.environ.get('RAZORPAY_API_KEY'), os.environ.get('RAZORPAY_API_SECRET')))
-client.set_app_details({"title": "MeraBestie - Django", "version": "1.0.0"})
+client.set_app_details({"title": "MeraBestie - Django", "version": "5.0.1"})
+
+class RazorpayPayments:
+    def __init__(self, method='other'):
+        self.method = method
+
+    def create_order(self, customer: User, order: Order) -> dict | None:
+        if not customer or customer.is_anonymous or not customer.is_authenticated:
+            raise Exception('You must be logged in to perform this action.')
+        if not order:
+            raise Exception('Invalid order.')
+        try:
+            order_data = {
+                'amount': int(order.total * 100),
+                'currency': order.currency or 'INR',
+                'receipt': order.order_id,
+                'notes': {
+                    'order_id': order.order_id,
+                    'user_id': customer.key,
+                    'customer_name': customer.get_full_name(),
+                    'customer_email': customer.email,
+                    'customer_phone': customer.phone_number
+                }
+            }
+            response = client.order.create(data=order_data)
+            if response and response['status'] == 'created':
+                return response
+            else:
+                raise Exception(response)
+        except Exception as e:
+            print(e, 'Error creating order with Razorpay.')
+            return None
+
+    def verify_payment(self, payment_id, order_id):
+        try:
+            response = client.payment.fetch(payment_id)
+            if response['status'] == 'captured':
+                return True
+            else:
+                return False
+        except Exception as e:
+            print(e, 'Error verifying payment with Razorpay.')
+            return False    
+        
+    def verify_signature(self, payload):
+        try:
+            client.utility.verify_payment_signature(payload)
+            return True
+        except Exception as e:
+            print(e, 'Error verifying signature with Razorpay.')
+            return False
+        
+    def get_info(self, order_id):
+        try:
+            info = client.order.fetch(order_id)
+            if info['status'] == 'paid':
+                return info
+            else:
+                raise Exception("An error accured.")
+        except:
+            return None

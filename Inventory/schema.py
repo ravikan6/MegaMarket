@@ -131,7 +131,7 @@ class ItemObject(DjangoObjectType):
         user = info.context.user
         if user.is_authenticated:
             try:
-                w = user.wishlist.items.filter(item=self).first()
+                w = user.wishlist.items.filter(pk=self.pk).first()
                 return True if w else False
             except:
                 return False
@@ -918,7 +918,7 @@ class CreateCheckoutPipeline(graphene.Mutation):
                     _item = Item.objects.get(key=item.item)
                     _item_variants = []
                     for variant in item.variants:
-                        _variant = ItemVariation.objects.get(id=variant)
+                        _variant = ItemVariantValue.objects.get(id=variant)
                         _item_variants.append(_variant)
                     items.append({
                         'item': _item,
@@ -926,7 +926,7 @@ class CreateCheckoutPipeline(graphene.Mutation):
                         'discount': item.discount or 0,
                         'variants': _item_variants
                     })
-                except (Item.DoesNotExist, ItemVariation.DoesNotExist):
+                except (Item.DoesNotExist, ItemVariantValue.DoesNotExist):
                     return cls(pipeline=None, success=False, message="Invalid item or variant")
 
             _pipeline_items = []
@@ -975,7 +975,7 @@ class UpdateCheckoutPipeline(graphene.Mutation):
                             _item = Item.objects.get(key=item.item)
                             _item_variants = []
                             for variant in item.variants:
-                                _variant = ItemVariation.objects.get(
+                                _variant = ItemVariantValue.objects.get(
                                     id=variant)
                                 _item_variants.append(_variant)
                             pipeline_item = PipelineItem.objects.create(
@@ -986,7 +986,8 @@ class UpdateCheckoutPipeline(graphene.Mutation):
                             pipeline_item.variants.set(_item_variants)
                             pipeline.items.add(pipeline_item)
                         elif item.action == 'remove' or item.action == 'update':
-                            pipeline_item = pipeline.items.get(item=item.item)
+                            _item = Item.objects.get(key=item.item)
+                            pipeline_item = pipeline.items.get(item=_item)
                             if item.action == 'remove':
                                 pipeline.items.remove(pipeline_item)
                             elif item.action == 'update':
@@ -1170,12 +1171,20 @@ class Query(graphene.ObjectType):
     inventory = relay.Node.Field(InventoryObject)
     item_review = relay.Node.Field(ItemReviewObject)
     tag = relay.Node.Field(TagObject)
-    checkout_pipeline = relay.Node.Field(CheckoutPipelineObject)
+    checkout_pipeline = graphene.Field(CheckoutPipelineObject, id=graphene.ID())
 
     def resolve_item(self, info, key):
         try:
             return Item.objects.get(key=key)
         except Item.DoesNotExist:
+            return None
+            
+    def resolve_checkout_pipeline(self, info, id):
+        user = info.context.user
+        if not user.is_authenticated: return None
+        try:
+            return CheckoutPipeline.objects.get(id=id, user=user)
+        except CheckoutPipeline.DoesNotExist:
             return None
 
 

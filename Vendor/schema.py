@@ -8,7 +8,7 @@ from Vendor.types import NewVendorInput, UpdateVendorInput
 from .models import Vendor
 from graphene_django import DjangoObjectType
 from graphene_django.filter import DjangoFilterConnectionField
-from Inventory.models import Order
+from Inventory.models import Item, Order
 
 class VendorObject(DjangoObjectType):
     
@@ -21,22 +21,26 @@ class VendorObject(DjangoObjectType):
         interfaces = (relay.Node, )
         use_connection = True
 
-class VendorOrderObject(DjangoObjectType):
+class VendorCustomerObject(DjangoObjectType):
+
     class Meta:
-        model = Order
+        model = User
         fields = '__all__'
         filter_fields = {
-            'status': ['exact', 'icontains'],
+            'username': ['exact', 'icontains'],
         }
         interfaces = (relay.Node, )
         use_connection = True
-
+        
     @classmethod
-    def get_queryset(cls, queryset, info):  
-        user = info.context.user
-        if not user.is_authenticated or not user.type == 'vendor':
+    def get_queryset(cls, queryset, info):
+        current_user = info.context.user
+        if not current_user.is_authenticated or current_user.type != 'vendor':
             return queryset.none()
-        return queryset.filter(items__item__vendor=user.vendor).distinct()
+        vendor_items = Item.objects.filter(vendor=current_user.vendor)
+        orders = Order.objects.filter(items__item__in=vendor_items).distinct()
+        customer_ids = orders.values_list('user_id', flat=True)
+        return queryset.filter(id__in=customer_ids)
     
     
 class NewVendor(graphene.Mutation):
@@ -113,7 +117,7 @@ class Query:
     vendor = relay.Node.Field(VendorObject)
     vendors = DjangoFilterConnectionField(VendorObject)
 
-    vendor_orders = DjangoFilterConnectionField(VendorOrderObject)
+    vendor_customers = DjangoFilterConnectionField(VendorCustomerObject)
 
 class Mutation:
     new_vendor = NewVendor.Field()

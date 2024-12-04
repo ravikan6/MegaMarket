@@ -175,6 +175,18 @@ class OrderObject(DjangoObjectType):
             return p
         except:
             return None
+    
+    @classmethod
+    def get_queryset(cls, queryset, info):
+        user = info.context.user
+        if not user.is_authenticated:
+            return queryset.none()
+        if user.type == 'vendor':
+            return queryset.filter(items__item__vendor=user.vendor).distinct()
+        if user.type == 'customer':
+            return queryset.filter(user=user)
+        return queryset
+    
 
 class OrderItemObject(DjangoObjectType):
     class Meta:
@@ -450,8 +462,8 @@ class UpdateItem(graphene.Mutation):
             if input.slug:
                 item.slug = input.slug
             _desc = {
-                "desc": input.description.desc if input.description.desc else item.description.get('desc', None),
-                "info": input.description.info if input.description.info else item.description.get('info', None)
+                "desc": input.description if input.description else item.description.get('desc', None),
+                # "info": input.description.info if input.description.info else item.description.get('info', None)
             }
             item.description = _desc
             if input.category:

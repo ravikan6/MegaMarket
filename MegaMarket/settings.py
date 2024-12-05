@@ -114,7 +114,7 @@ AUTHENTICATION_BACKENDS = [
 
 ROOT_URLCONF = 'MegaMarket.urls'
 
-LOGIN_URL = '/admin/login/'
+LOGIN_URL = '/auth/login/'
 
 TEMPLATES = [
     {

@@ -1,6 +1,6 @@
 from django.shortcuts import render
 from cloudinary.uploader import upload_image
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.contrib.auth.decorators import login_required
 from Common.models import Image
 
@@ -36,3 +36,6 @@ def image_upload(request):
                 print(str(e))
                 context['error'] = 'Image upload failed'
     return render(request, 'upload_image.html', context)
+
+def main(request):
+    return HttpResponse('Hello World!')

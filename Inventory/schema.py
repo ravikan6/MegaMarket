@@ -1193,7 +1193,7 @@ class AddRazorPayRes(graphene.Mutation):
         if not user.is_authenticated:
             raise UnAuthorizedException()
         try:
-            order = Order.objects.get(order_id=input.order_id)
+            order = Order.objects.get(order_id=input.server_order_id)
         except Order.DoesNotExist:
             return cls(success=False, message="Order not found", is_verified=False, status='failed')
         try:
@@ -1210,7 +1210,7 @@ class AddRazorPayRes(graphene.Mutation):
                 order.save()
                 return cls(success=True, message="Payment successful", is_verified=True, order=order, status='paid')
             else:
-                return cls(success=False, message="Payment failed", is_verified=False, status='failed')
+                return cls(success=True, message="Payment Verification failed", is_verified=False, status='failed')
         except Exception as e:
             return cls(success=False, message="Payment failed", is_verified=False, status='failed')
 
